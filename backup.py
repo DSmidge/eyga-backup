@@ -338,7 +338,7 @@ class BackupCommands(object):
 		return user_cmds
 	
 	# Execute backup commands
-	def execute(self, backup_x, cmds):
+	def execute(self, backup_dirpath, backup_x, cmds):
 		if cmds is not None:
 			cmds = filter(None, cmds)
 			cmd = "\n".join(cmds)
@@ -370,8 +370,8 @@ def execute_at_runtime(script_runtime, debug_mode):
 			lists.db_list_by_users, config.db_default_user, config.db_ignore_users, info.db_optimize)
 	user_cmds = cmds.user_cmds(info.backup_user_type, info.backup_user_time,
 			lists.user_list)
-	cmds.execute("sql", db_cmds)
-	cmds.execute("user", user_cmds)
+	cmds.execute(config.backup_dirpath, "sql", db_cmds)
+	cmds.execute(config.backup_dirpath, "user", user_cmds)
 
 # Main
 if len(sys.argv) >= 2:

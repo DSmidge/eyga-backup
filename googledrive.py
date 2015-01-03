@@ -106,7 +106,7 @@ class GoogleDrive:
 				media_body=media_body).execute()
 
 # Main
-if len(sys.argv) == 4
+if len(sys.argv) == 4:
 	config = Config()
 	file_path = sys.argv[1]
 	file_name = sys.argv[2]
