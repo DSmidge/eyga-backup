@@ -4,6 +4,7 @@
 # Run it manualy first to set the credentials
 
 # Import modules
+import ConfigParser
 import os.path
 import httplib2
 import sys
@@ -17,6 +18,16 @@ from oauth2client.file import Storage
 # Configuration
 class Config(object):
 	script_dirpath = None
+	
+	def __init__(self):
+		# Define execution path
+		if self.script_dirpath is None:
+			script_dirpath = os.path.dirname(sys.argv[0])
+			if len(script_dirpath) > 0:
+				script_dirpath += "/"
+			self.script_dirpath = script_dirpath
+		# Set configuration attributes
+		self.__google_credentials("google_credentials.cfg")
 	
 	# Get the path of the configuration file
 	def __get_config_filepath(self, config_filename):
@@ -34,16 +45,6 @@ class Config(object):
 		self.google_client_id        = config.get(config_section, "google_client_id")
 		self.google_client_secret    = config.get(config_section, "google_client_secret")
 		self.google_credentials_json = self.script_dirpath + "google_credentials.json"
-	
-	def __init__(self):
-		# Define execution path
-		if self.script_dirpath is None:
-			script_dirpath = os.path.dirname(sys.argv[0])
-			if len(script_dirpath) > 0:
-				script_dirpath += "/"
-			self.script_dirpath = script_dirpath
-		# Set configuration attributes
-		self.__google_credentials("google_credentials.cfg")
 
 
 # For uploading to Google Drive
@@ -106,15 +107,16 @@ class GoogleDrive:
 				media_body=media_body).execute()
 
 # Main
-if len(sys.argv) == 4:
+if len(sys.argv) == 3:
 	config = Config()
-	file_path = sys.argv[1]
-	file_name = sys.argv[2]
-	file_desc = sys.argv[3]
-	drive = GoogleDrive(config.google_client_id, config.google_client_secret, config.google_credentials_json)
-	drive.upload_file(file_path, file_name, file_desc)
+	filepath = sys.argv[1]
+	filename = os.path.basename(filepath)
+	filedesc = sys.argv[2]
+	if os.path.isfile(filepath):
+		drive = GoogleDrive(config.google_client_id, config.google_client_secret, config.google_credentials_json)
+		drive.upload_file(filepath, filename, filedesc)
 else:
-	print("Expected 'file_path', 'file_name' and 'file_desc' for parameters.")
+	print("Expected 'filepath' and 'filedesc' for parameters.")
 	sys.exit(1)
 
 # TODO:

@@ -68,44 +68,36 @@ class BackupInfo(object):
 	def __init__(self, script_runtime, split_day_by_hour, split_week_by_day, full_backup_weeks):
 		if split_day_by_hour > 23: split_day_by_hour = 0
 		if split_week_by_day > 06: split_week_by_day = 0
-		self.__script_runtime    = script_runtime
-		self.__week_cnt_start    = datetime(2014, 12, 29) # On Monday
-		self.__split_day_by_hour = split_day_by_hour
-		self.__split_week_by_day = split_week_by_day
-		self.__full_backup_weeks = full_backup_weeks
-		self.__set_shifted_time()
-		self.__set_backup_info()
+		self.__set_shifted_time(script_runtime, split_day_by_hour, split_week_by_day, full_backup_weeks)
 	
 	# Shift time to hour of full backup
-	def __set_shifted_time(self):
+	def __set_shifted_time(self, script_runtime, split_day_by_hour, split_week_by_day, full_backup_weeks):
 		# Fix hour
-		day_hours = self.__split_day_by_hour
-		hour = (self.__script_runtime - timedelta(hours=day_hours)).hour
+		day_hours = split_day_by_hour
+		shifted_hour = (script_runtime - timedelta(hours=day_hours)).hour
 		# Fix weekday
-		week_hours = 24 * self.__split_week_by_day + self.__split_day_by_hour
-		weekday = (self.__script_runtime - timedelta(hours=week_hours)).weekday()
+		week_hours = 24 * split_week_by_day + split_day_by_hour
+		shifted_weekday = (script_runtime - timedelta(hours=week_hours)).weekday()
 		# Calculate week number
-		week_start_1 = (self.__week_cnt_start - timedelta(days=self.__week_cnt_start.weekday() + self.__split_week_by_day))
-		week_start_2 = (self.__script_runtime - timedelta(days=self.__script_runtime.weekday() + self.__split_week_by_day))
-		week = ((week_start_2 - week_start_1).days / 7) % self.__full_backup_weeks
+		week_start_1 = (datetime(2014, 12, 28) + timedelta(hours=day_hours)) # Corrections must be on Monday
+		week_start_2 = (script_runtime - timedelta(hours=week_hours))
+		shifted_week = ((week_start_2 - week_start_1).days / 7) % full_backup_weeks
 		# Set attributes
-		self.__shifted_hour    = hour
-		self.__shifted_weekday = weekday
-		self.__shifted_week    = week
+		self.__set_backup_info(shifted_hour, shifted_weekday, shifted_week)
 	
 	# Define type of backup (full or diff)
-	def __set_backup_info(self):
-		hour = "h" + ("0" + str(self.__shifted_hour))[-2:]
-		day = "d" + str(self.__shifted_weekday)
-		week = "w" + str(self.__shifted_week)
+	def __set_backup_info(self, shifted_hour, shifted_weekday, shifted_week):
+		hour = "h" + ("0" + str(shifted_hour))[-2:]
+		day = "d" + str(shifted_weekday)
+		week = "w" + str(shifted_week + 1)
 		# Set backup type and time attributes
-		if self.__shifted_weekday == 0 and self.__shifted_hour == 0:
+		if shifted_weekday == 0 and shifted_hour == 0:
 			# Weekly backup (for last X weeks)
 			self.__set_backup_attr(week, "full", None, "full", None, "yes")
-		elif self.__shifted_hour == 0:
+		elif shifted_hour == 0:
 			# Daily backup
 			self.__set_backup_attr(day, "full", None, "diff", week, "no")
-		elif self.__shifted_weekday == 0:
+		elif shifted_weekday == 0:
 			# Hourly backup in week delimiter day
 			self.__set_backup_attr(hour, "diff", week, None, None, "no")
 		else:
@@ -121,6 +113,25 @@ class BackupInfo(object):
 		self.backup_user_type = backup_user_type
 		self.backup_user_time = backup_user_time
 		self.db_optimize      = db_optimize
+
+	# Test shifting hour, day and week calculations
+	def test_shifting_time(self, split_day_by_hour, split_week_by_day, full_backup_weeks):
+		print("")
+		year = 2015
+		month = 1
+		for day in range(2, 12):
+		#	for hour in range(split_week_by_day - 2, split_week_by_day + 1):
+		#for day in range(2, 5):
+			for hour in range(0, 23):
+				script_runtime = datetime(year, month, day, hour)
+				self.__set_shifted_time(script_runtime, split_day_by_hour, split_week_by_day, full_backup_weeks)
+				print("runtume: " + script_runtime.isoformat(' ') + ""
+						", time: " + str(self.backup_time) + ""
+						", db_type: " + str(self.backup_db_type) + ""
+						", db_time: " + str(self.backup_db_time) + ""
+						", user_type: " + str(self.backup_user_type) + ""
+						", user_type: " + str(self.backup_user_time) + "")
+
 
 # Lists of databases and users
 class Lists(object):
@@ -226,8 +237,9 @@ class BackupCommands(object):
 				db_temp_dirpath_full, db_temp_dirpath_diff, user_root_dirpath,
 				password_db, password_7z):
 		# Log execution to file
-		with open(backup_dirpath + "/backup.log", "a") as log:
-			log.write("\n" + script_runtime.replace(microsecond=0).isoformat(' '))
+		if not debug_mode:
+			with open(backup_dirpath + "/backup.log", "a") as log:
+				log.write("\n" + script_runtime.replace(microsecond=0).isoformat(' '))
 		# Set attributes
 		self.__script_dirpath       = script_dirpath
 		self.__debug_mode           = debug_mode
@@ -238,11 +250,12 @@ class BackupCommands(object):
 		self.__user_root_dirpath    = user_root_dirpath
 		self.__params_mysqldump     = password_db + " --compress --skip-extended-insert --single-transaction --routines --triggers"
 		self.__params_mysqloptimize = password_db + " --compress --silent"
-		self.__params_7z            = password_7z + " -mx5 -mhe=on -s=e -f=off -mt=off"
+		self.__params_7z            = password_7z + " -mhe=on -mx5 -mf=off -ms=e -mmt=off"
 	
 	# Prepre commands for backup of databases
 	def db_cmds(self, backup_db_type, backup_db_time, db_list_by_users, db_default_user, db_ignore_users, db_optimize):
 		db_cmds = []
+		db_cmds_gd = []
 		if backup_db_type is None:
 			return
 		# Seperate backup for every user
@@ -251,7 +264,7 @@ class BackupCommands(object):
 			path.set(user, "sql", backup_db_type, backup_db_time)
 			# Export all databases from specific user to files
 			if backup_db_type == "full":
-				db_cmds.append("rm \"" + path.db_dirpath + "/*\"")
+				db_cmds.append("if [ \"$(ls -A \"" + path.db_dirpath + "\")\" ]; then rm \"" + path.db_dirpath + "/*\"; fi\n")
 			if user == db_default_user:
 				# Backup database permissions
 				db_cmds.append(self.__mysqldump_permissions(path.db_dirpath, db_ignore_users))
@@ -265,17 +278,19 @@ class BackupCommands(object):
 			# Compress databases
 			db_cmds.append(self.__7z_add(path.db_temp_dirpath, user, path.backup_dirpath, path.backup_filename))
 			# Upload to Google Drive
-			db_cmds.append("python \"" + self.__script_dirpath + "googledrive.py\""
-					" '" + path.backup_dirpath + "/" + path.backup_filename + "' '" + path.backup_filename + "'"
-					" 'Diff for " + str(backup_db_time).upper() + "'")
+			gd_file = path.backup_dirpath + "/" + path.backup_filename
+			if os.path.isfile(gd_file):
+				db_cmds_gd.append("python \"" + self.__script_dirpath + "googledrive.py\""
+						" '" + gd_file + "' 'Diff for " + str(backup_db_time).upper() + "'")
 		# Database optimizations
 		if db_optimize == "yes":
 			db_cmds.append(self.__mysqloptimize())
-		return db_cmds
+		return db_cmds, db_cmds_gd
 	
 	# Prepare commands for backup of user files
 	def user_cmds(self, backup_user_type, backup_user_time, user_list):
 		user_cmds = []
+		user_cmds_gd = []
 		if backup_user_type is None:
 			return
 		# Seperate backup for every user
@@ -289,52 +304,56 @@ class BackupCommands(object):
 			if backup_user_type == "diff":
 				user_cmds.append(self.__7z_update(self.__user_root_dirpath, user, path.backup_dirpath, path.backup_filename, path.user_filepath_full))
 				# Upload to Google Drive
-				user_cmds.append("python \"" + self.__script_dirpath + "googledrive.py\""
-						" '" + path.backup_dirpath + "/" + path.backup_filename + "' '" + path.backup_filename + "'"
-						" 'Diff for " + str(backup_user_time).upper() + "'")
-		return user_cmds
+				gd_file = path.backup_dirpath + "/" + path.backup_filename
+				if os.path.isfile(gd_file):
+					user_cmds_gd.append("python \"" + self.__script_dirpath + "googledrive.py\""
+							" '" + gd_file + "' 'Diff for " + str(backup_user_time).upper() + "'")
+		return user_cmds, user_cmds_gd
 	
 	# Execute backup commands
 	def execute(self, backup_dirpath, backup_x, cmds):
-		if cmds is not None:
-			cmds = filter(None, cmds)
-			cmd = "\n".join(cmds)
-			if not self.__debug_mode:
-				start = datetime.now()
-				subprocess.call(cmd, shell=True);
-				stop = datetime.now()
-				with open(backup_dirpath + "/backup.log", "a") as log:
-					log.write(", " + backup_x + " = " + str(round(stop - start, 1)) + "s")
-			else:
-				print(cmd)
-
+		if cmds is None:
+			return
+		cmds = filter(None, cmds)
+		if len(cmds) == 0:
+			return
+		cmd = "\n".join(cmds)
+		if not self.__debug_mode:
+			start = datetime.now()
+			subprocess.call(cmd, shell=True);
+			stop = datetime.now()
+			with open(backup_dirpath + "/backup.log", "a") as log:
+				log.write(", " + backup_x + " = " + str(round((stop - start).total_seconds(), 1)) + "s")
+		else:
+			print(cmd)
+	
 	def __mysqldump_permissions(self, db_dirpath, db_ignore_users):
-		return ("{ mysqldump " + self.__params_mysqldump + " --no-create-info --databases mysql --tables db user;"
+		return("{ mysqldump " + self.__params_mysqldump + " --no-create-info --databases mysql --tables db user;"
 				" echo \"\\nFLUSH PRIVILEGES;\"; }"
 				" | sed \"17s/^$/\\nUSE \`mysql\`;\\n/\""
 				" | grep --invert-match --extended-regexp \"^INSERT INTO \`user\` VALUES \('(\w|\-|\.)*','(" + db_ignore_users + ")',\""
 				" > \"" + db_dirpath + "/mysql.sql\"")
 	
 	def __mysqldump_full(self, db, db_dirpath):
-		return ("mysqldump " + self.__params_mysqldump + " --databases " + db + ""
+		return("mysqldump " + self.__params_mysqldump + " --databases " + db + ""
 				" > \"" + db_dirpath + "/" + db + ".sql\"")
 	
 	def __mysqldump_diff(self, db, db_dirpath, db_dirpath_full):
 		if not os.path.isfile(db_dirpath_full + "/" + db + ".sql"):
 			return
-		return ("mysqldump " + self.__params_mysqldump + " --databases " + db + ""
+		return("mysqldump " + self.__params_mysqldump + " --databases " + db + ""
 				" | diff \"" + db_dirpath_full + "/" + db + ".sql\" -"
 				" > \"" + db_dirpath + "/" + db + ".sql.diff\"")
 	
 	def __mysqloptimize(self):
-		return ("mysqloptimize " + self.__params_mysqloptimize + " --all-databases"
+		return("mysqloptimize " + self.__params_mysqloptimize + " --all-databases"
 				" > \"" + self.__backup_dirpath + "/mysqloptimize.log\"")
 	
 	def __7z_add(self, source_dirpath, source_name, backup_dirpath, backup_filename):
 		if not os.path.isdir(backup_dirpath):
 			os.makedirs(backup_dirpath, mode=0755)
 		filepath_7z = backup_dirpath + "/" + backup_filename
-		return ("if [ -f \"" + filepath_7z + "\" ]; then rm \"" + filepath_7z + "\"; fi\n"
+		return("if [ -f \"" + filepath_7z + "\" ]; then rm \"" + filepath_7z + "\"; fi\n"
 				"7z a " + self.__params_7z + " -w\"" + source_dirpath + "\""
 				" \"" + filepath_7z + "\" \"" + source_dirpath + "/" + source_name + "\""
 				" > /dev/null")
@@ -344,7 +363,7 @@ class BackupCommands(object):
 			return
 		filepath_7z = backup_dirpath + "/" + backup_filename
 		# http://a32.me/2010/08/7zip-differential-backup-linux-windows/
-		return ("if [ -f \"" + filepath_7z + "\" ]; then rm \"" + filepath_7z + "\"; fi\n"
+		return("if [ -f \"" + filepath_7z + "\" ]; then rm \"" + filepath_7z + "\"; fi\n"
 				"7z u " + self.__params_7z + " -w\"" + source_dirpath + "\""
 				" \"" + filepath_7z + "\" \"" + source_dirpath + "/" + source_name + "\""
 				" -u- -up0q3r2x2y2z0w2\!\"" + user_dirpath_full + "\""
@@ -368,22 +387,43 @@ def execute_at_runtime(script_runtime, debug_mode):
 			config.password_db, config.password_7z)
 	db_cmds = cmds.db_cmds(info.backup_db_type, info.backup_db_time,
 			lists.db_list_by_users, config.db_default_user, config.db_ignore_users, info.db_optimize)
+	(db_cmds_core, db_cmds_gd) = (None, None)
+	if db_cmds is not None:
+		(db_cmds_core, db_cmds_gd) = db_cmds
 	user_cmds = cmds.user_cmds(info.backup_user_type, info.backup_user_time,
 			lists.user_list)
-	cmds.execute(config.backup_dirpath, "sql", db_cmds)
-	cmds.execute(config.backup_dirpath, "user", user_cmds)
+	(user_cmds_core, user_cmds_gd) = (None, None)
+	if user_cmds is not None:
+		(user_cmds_core, user_cmds_gd) = user_cmds
+	# Execute backup commands
+	cmds.execute(config.backup_dirpath, "db", db_cmds_core)
+	cmds.execute(config.backup_dirpath, "user", user_cmds_core)
+	cmds.execute(config.backup_dirpath, "db_gd", db_cmds_gd)
+	cmds.execute(config.backup_dirpath, "user_gd", user_cmds_gd)
 
 # Main
-if len(sys.argv) >= 2:
-	print "# List of backup.py commands"
-	print "\n\n# db = full, user = full"
-	execute_at_runtime(datetime(2014, 12, 27, 4), True)
-	print "\n\n# db = full, user = diff"
-	execute_at_runtime(datetime(2014, 12, 28, 4), True)
-	print "\n\n# db = diff, user = none"
-	execute_at_runtime(datetime(2014, 12, 28, 5), True)
-else:
+if len(sys.argv) == 1:
 	execute_at_runtime(datetime.now(), False)
+else:
+	# Debug
+	print "# List of backup.py commands"
+	script_runtime = datetime(2015, 01, 03, 4)
+	print "\n\n# db = full, user = full, " + script_runtime.isoformat(' ')
+	execute_at_runtime(script_runtime, True)
+	script_runtime = datetime(2015, 01, 03, 5)
+	print "\n\n# db = diff, user = none, " + script_runtime.isoformat(' ')
+	execute_at_runtime(script_runtime, True)
+	script_runtime = datetime(2015, 01, 04, 4)
+	print "\n\n# db = full, user = diff, " + script_runtime.isoformat(' ')
+	execute_at_runtime(script_runtime, True)
+	script_runtime = datetime(2015, 01, 04, 5)
+	print "\n\n# db = diff, user = none, " + script_runtime.isoformat(' ')
+	execute_at_runtime(script_runtime, True)
+	# Test shifting time
+	config = Config()
+	info = BackupInfo(script_runtime, config.split_day_by_hour, config.split_week_by_day,
+			config.full_backup_weeks)
+	info.test_shifting_time(config.split_day_by_hour, config.split_week_by_day, config.full_backup_weeks)
 
 
 # TODO:
