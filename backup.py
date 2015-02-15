@@ -4,15 +4,26 @@
 
 # Import modules
 import ConfigParser
-from datetime import datetime, timedelta
 import os
 import subprocess
 import sys
+from datetime import datetime, timedelta
 
 
 # Configuration
 class Config(object):
 	script_dirpath = None
+	
+	def __init__(self):
+		# Define execution path
+		if self.script_dirpath is None:
+			script_dirpath = os.path.dirname(sys.argv[0])
+			if len(script_dirpath) > 0:
+				script_dirpath += "/"
+			self.script_dirpath = script_dirpath
+		# Set configuration attributes
+		self.__settings("settings.cfg")
+		self.__passwords("passwords.cfg")
 	
 	# Get the path of the configuration file
 	def __get_config_filepath(self, config_filename):
@@ -49,21 +60,21 @@ class Config(object):
 		config_section   = "passwords"
 		self.password_db = config.get(config_section, "password_db")
 		self.password_7z = config.get(config_section, "password_7z")
-	
-	def __init__(self):
-		# Define execution path
-		if self.script_dirpath is None:
-			script_dirpath = os.path.dirname(sys.argv[0])
-			if len(script_dirpath) > 0:
-				script_dirpath += "/"
-			self.script_dirpath = script_dirpath
-		# Set configuration attributes
-		self.__settings("settings.cfg")
-		self.__passwords("passwords.cfg")
 
 
 # Define period start times and backup types
 class BackupInfo(object):
+	
+	def __init__(self, script_runtime, split_day_by_hour, split_week_by_day, full_backup_weeks):
+		if split_day_by_hour > 23: split_day_by_hour = 0
+		if split_week_by_day > 06: split_week_by_day = 0
+		self.__script_runtime    = script_runtime
+		self.__week_cnt_start    = datetime(2014, 12, 29) # On Monday
+		self.__split_day_by_hour = split_day_by_hour
+		self.__split_week_by_day = split_week_by_day
+		self.__full_backup_weeks = full_backup_weeks
+		self.__set_shifted_time()
+		self.__set_backup_info()
 	
 	# Shift time to hour of full backup
 	def __set_shifted_time(self):
@@ -81,16 +92,6 @@ class BackupInfo(object):
 		self.__shifted_hour    = hour
 		self.__shifted_weekday = weekday
 		self.__shifted_week    = week
-	
-	# Set backup attributes
-	def __set_backup_attr(self, backup_time, backup_db_type, backup_db_time,
-				backup_user_type, backup_user_time, db_optimize):
-		self.backup_time      = backup_time
-		self.backup_db_type   = backup_db_type
-		self.backup_db_time   = backup_db_time
-		self.backup_user_type = backup_user_type
-		self.backup_user_time = backup_user_time
-		self.db_optimize      = db_optimize
 	
 	# Define type of backup (full or diff)
 	def __set_backup_info(self):
@@ -111,20 +112,25 @@ class BackupInfo(object):
 			# Hourly backup
 			self.__set_backup_attr(hour, "diff", day, None, None, "no")
 	
-	def __init__(self, script_runtime, split_day_by_hour, split_week_by_day, full_backup_weeks):
-		if split_day_by_hour > 23: split_day_by_hour = 0
-		if split_week_by_day > 06: split_week_by_day = 0
-		self.__script_runtime    = script_runtime
-		self.__week_cnt_start    = datetime(2014, 12, 29) # On Monday
-		self.__split_day_by_hour = split_day_by_hour
-		self.__split_week_by_day = split_week_by_day
-		self.__full_backup_weeks = full_backup_weeks
-		self.__set_shifted_time()
-		self.__set_backup_info()
-
+	# Set backup attributes
+	def __set_backup_attr(self, backup_time, backup_db_type, backup_db_time,
+				backup_user_type, backup_user_time, db_optimize):
+		self.backup_time      = backup_time
+		self.backup_db_type   = backup_db_type
+		self.backup_db_time   = backup_db_time
+		self.backup_user_type = backup_user_type
+		self.backup_user_time = backup_user_time
+		self.db_optimize      = db_optimize
 
 # Lists of databases and users
 class Lists(object):
+	
+	def __init__(self, db_root_dirpath, db_default_user, db_ignore, user_root_dirpath, user_ignore):
+		db_list          = self.__db_list(db_root_dirpath, db_ignore)
+		user_list        = self.__user_list(user_root_dirpath, user_ignore)
+		db_list_by_users = self.__db_list_by_users(db_root_dirpath, db_list, db_default_user, user_list)
+		self.user_list        = user_list
+		self.db_list_by_users = db_list_by_users
 	
 	# Database list
 	def __db_list(self, db_root_dirpath, db_ignore):
@@ -165,13 +171,6 @@ class Lists(object):
 				db_list_by_users[user_found] = []
 			db_list_by_users[user_found].append(db)
 		return db_list_by_users
-	
-	def __init__(self, db_root_dirpath, db_default_user, db_ignore, user_root_dirpath, user_ignore):
-		db_list          = self.__db_list(db_root_dirpath, db_ignore)
-		user_list        = self.__user_list(user_root_dirpath, user_ignore)
-		db_list_by_users = self.__db_list_by_users(db_root_dirpath, db_list, db_default_user, user_list)
-		self.user_list        = user_list
-		self.db_list_by_users = db_list_by_users
 
 
 # Define shell commands for backup execution
@@ -241,48 +240,6 @@ class BackupCommands(object):
 		self.__params_mysqloptimize = password_db + " --compress --silent"
 		self.__params_7z            = password_7z + " -mx5 -mhe=on -s=e -f=off -mt=off"
 	
-	def __mysqldump_permissions(self, db_dirpath, db_ignore_users):
-		return ("{ mysqldump " + self.__params_mysqldump + " --no-create-info --databases mysql --tables db user;"
-				" echo \"\\nFLUSH PRIVILEGES;\"; }"
-				" | sed \"17s/^$/\\nUSE \`mysql\`;\\n/\""
-				" | grep --invert-match --extended-regexp \"^INSERT INTO \`user\` VALUES \('(\w|\-|\.)*','(" + db_ignore_users + ")',\""
-				" > \"" + db_dirpath + "/mysql.sql\"")
-	
-	def __mysqldump_full(self, db, db_dirpath):
-		return ("mysqldump " + self.__params_mysqldump + " --databases " + db + ""
-				" > \"" + db_dirpath + "/" + db + ".sql\"")
-	
-	def __mysqldump_diff(self, db, db_dirpath, db_dirpath_full):
-		if not os.path.isfile(db_dirpath_full + "/" + db + ".sql"):
-			return
-		return ("mysqldump " + self.__params_mysqldump + " --databases " + db + ""
-				" | diff \"" + db_dirpath_full + "/" + db + ".sql\" -"
-				" > \"" + db_dirpath + "/" + db + ".sql.diff\"")
-	
-	def __mysqloptimize(self):
-		return ("mysqloptimize " + self.__params_mysqloptimize + " --all-databases"
-				" > \"" + self.__backup_dirpath + "/mysqloptimize.log\"")
-	
-	def __7z_add(self, source_dirpath, source_name, backup_dirpath, backup_filename):
-		if not os.path.isdir(backup_dirpath):
-			os.makedirs(backup_dirpath, mode=0755)
-		filepath_7z = backup_dirpath + "/" + backup_filename
-		return ("if [ -f \"" + filepath_7z + "\" ]; then rm \"" + filepath_7z + "\"; fi\n"
-				"7z a " + self.__params_7z + " -w\"" + source_dirpath + "\""
-				" \"" + filepath_7z + "\" \"" + source_dirpath + "/" + source_name + "\""
-				" > /dev/null")
-	
-	def __7z_update(self, source_dirpath, source_name, backup_dirpath, backup_filename, user_dirpath_full):
-		if not os.path.isfile(user_dirpath_full):
-			return
-		filepath_7z = backup_dirpath + "/" + backup_filename
-		# http://a32.me/2010/08/7zip-differential-backup-linux-windows/
-		return ("if [ -f \"" + filepath_7z + "\" ]; then rm \"" + filepath_7z + "\"; fi\n"
-				"7z u " + self.__params_7z + " -w\"" + source_dirpath + "\""
-				" \"" + filepath_7z + "\" \"" + source_dirpath + "/" + source_name + "\""
-				" -u- -up0q3r2x2y2z0w2\!\"" + user_dirpath_full + "\""
-				" > /dev/null")
-	
 	# Prepre commands for backup of databases
 	def db_cmds(self, backup_db_type, backup_db_time, db_list_by_users, db_default_user, db_ignore_users, db_optimize):
 		db_cmds = []
@@ -351,6 +308,49 @@ class BackupCommands(object):
 			else:
 				print(cmd)
 
+	def __mysqldump_permissions(self, db_dirpath, db_ignore_users):
+		return ("{ mysqldump " + self.__params_mysqldump + " --no-create-info --databases mysql --tables db user;"
+				" echo \"\\nFLUSH PRIVILEGES;\"; }"
+				" | sed \"17s/^$/\\nUSE \`mysql\`;\\n/\""
+				" | grep --invert-match --extended-regexp \"^INSERT INTO \`user\` VALUES \('(\w|\-|\.)*','(" + db_ignore_users + ")',\""
+				" > \"" + db_dirpath + "/mysql.sql\"")
+	
+	def __mysqldump_full(self, db, db_dirpath):
+		return ("mysqldump " + self.__params_mysqldump + " --databases " + db + ""
+				" > \"" + db_dirpath + "/" + db + ".sql\"")
+	
+	def __mysqldump_diff(self, db, db_dirpath, db_dirpath_full):
+		if not os.path.isfile(db_dirpath_full + "/" + db + ".sql"):
+			return
+		return ("mysqldump " + self.__params_mysqldump + " --databases " + db + ""
+				" | diff \"" + db_dirpath_full + "/" + db + ".sql\" -"
+				" > \"" + db_dirpath + "/" + db + ".sql.diff\"")
+	
+	def __mysqloptimize(self):
+		return ("mysqloptimize " + self.__params_mysqloptimize + " --all-databases"
+				" > \"" + self.__backup_dirpath + "/mysqloptimize.log\"")
+	
+	def __7z_add(self, source_dirpath, source_name, backup_dirpath, backup_filename):
+		if not os.path.isdir(backup_dirpath):
+			os.makedirs(backup_dirpath, mode=0755)
+		filepath_7z = backup_dirpath + "/" + backup_filename
+		return ("if [ -f \"" + filepath_7z + "\" ]; then rm \"" + filepath_7z + "\"; fi\n"
+				"7z a " + self.__params_7z + " -w\"" + source_dirpath + "\""
+				" \"" + filepath_7z + "\" \"" + source_dirpath + "/" + source_name + "\""
+				" > /dev/null")
+	
+	def __7z_update(self, source_dirpath, source_name, backup_dirpath, backup_filename, user_dirpath_full):
+		if not os.path.isfile(user_dirpath_full):
+			return
+		filepath_7z = backup_dirpath + "/" + backup_filename
+		# http://a32.me/2010/08/7zip-differential-backup-linux-windows/
+		return ("if [ -f \"" + filepath_7z + "\" ]; then rm \"" + filepath_7z + "\"; fi\n"
+				"7z u " + self.__params_7z + " -w\"" + source_dirpath + "\""
+				" \"" + filepath_7z + "\" \"" + source_dirpath + "/" + source_name + "\""
+				" -u- -up0q3r2x2y2z0w2\!\"" + user_dirpath_full + "\""
+				" > /dev/null")
+
+
 # Execute backup for specific time
 def execute_at_runtime(script_runtime, debug_mode):
 	os.nice(40)
@@ -384,6 +384,7 @@ if len(sys.argv) >= 2:
 	execute_at_runtime(datetime(2014, 12, 28, 5), True)
 else:
 	execute_at_runtime(datetime.now(), False)
+
 
 # TODO:
 #	Generate a file with chmod and chown commands (7z doesn't store this info)
