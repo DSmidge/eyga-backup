@@ -253,13 +253,13 @@ class BackupCommands(object):
 		self.__params_mysqloptimize = password_db + " --compress --silent"
 		self.__params_7z            = password_7z + " -mhe=on -mx5 -mf=off -ms=e -mmt=off"
 	
-	# Prepre commands for backup of databases
+	# Prepare commands for backup of databases
 	def db_cmds(self, backup_db_type, backup_db_time, db_list_by_users, db_default_user, db_ignore_users, db_optimize):
 		db_cmds = []
 		db_cmds_gd = []
 		if backup_db_type is None:
 			return
-		# Seperate backup for every user
+		# Separate backup for every user
 		path = self.Path(self.__backup_dirpath, self.__backup_time, self.__db_temp_dirpath_full, self.__db_temp_dirpath_diff, self.__user_root_dirpath)
 		for user in db_list_by_users:
 			path.set(user, "sql", backup_db_type, backup_db_time)
@@ -294,7 +294,7 @@ class BackupCommands(object):
 		user_cmds_gd = []
 		if backup_user_type is None:
 			return
-		# Seperate backup for every user
+		# Separate backup for every user
 		path = self.Path(self.__backup_dirpath, self.__backup_time, self.__db_temp_dirpath_full, self.__db_temp_dirpath_diff, self.__user_root_dirpath)
 		for user in user_list:
 			path.set(user, "user", backup_user_type, backup_user_time)
@@ -382,7 +382,7 @@ def execute_at_runtime(script_runtime, debug_mode):
 	# List of databases and user dirs to backup
 	lists = Lists(config.db_root_dirpath, config.db_default_user, config.db_ignore,
 			config.user_root_dirpath, config.user_ignore)
-	# Prepare database and user dirs commands for archieving
+	# Prepare database and user dirs commands for archiving
 	cmds = BackupCommands(script_runtime, config.script_dirpath, debug_mode, config.backup_dirpath, info.backup_time,
 			config.db_temp_dirpath_full, config.db_temp_dirpath_diff, config.user_root_dirpath,
 			config.password_db, config.password_7z)
@@ -432,5 +432,5 @@ else:
 #	Generate a file with restore commands (mysql imports, 7z extracts)
 #	Detect if no full backup exists for databases and user files
 #	Join methods for some mysqldump/7z commands
-#	Performace test: store full SQL files with gzip/7z and make diff on their stream (7z -si and -so switches)
-#	Add full SQL files directly in 7z file (will ignore solid archieves; maby with -si, -so switches?)
+#	Performance test: store full SQL files with gzip/7z and make diff on their stream (7z -si and -so switches)
+#	Add full SQL files directly in 7z file (will ignore solid archives; maybe with -si, -so switches?)
