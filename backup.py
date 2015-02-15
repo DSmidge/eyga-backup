@@ -68,6 +68,7 @@ class BackupInfo(object):
 	def __init__(self, script_runtime, split_day_by_hour, split_week_by_day, full_backup_weeks):
 		if split_day_by_hour > 23: split_day_by_hour = 0
 		if split_week_by_day > 06: split_week_by_day = 0
+		if full_backup_weeks < 02: full_backup_weeks = 2
 		self.__set_shifted_time(script_runtime, split_day_by_hour, split_week_by_day, full_backup_weeks)
 	
 	# Shift time to hour of full backup
@@ -113,7 +114,7 @@ class BackupInfo(object):
 		self.backup_user_type = backup_user_type
 		self.backup_user_time = backup_user_time
 		self.db_optimize      = db_optimize
-
+	
 	# Test shifting hour, day and week calculations
 	def test_shifting_time(self, split_day_by_hour, split_week_by_day, full_backup_weeks):
 		print("")
@@ -130,7 +131,7 @@ class BackupInfo(object):
 						", db_type: " + str(self.backup_db_type) + ""
 						", db_time: " + str(self.backup_db_time) + ""
 						", user_type: " + str(self.backup_user_type) + ""
-						", user_type: " + str(self.backup_user_time) + "")
+						", user_time: " + str(self.backup_user_time) + "")
 
 
 # Lists of databases and users
@@ -139,7 +140,7 @@ class Lists(object):
 	def __init__(self, db_root_dirpath, db_default_user, db_ignore, user_root_dirpath, user_ignore):
 		db_list          = self.__db_list(db_root_dirpath, db_ignore)
 		user_list        = self.__user_list(user_root_dirpath, user_ignore)
-		db_list_by_users = self.__db_list_by_users(db_root_dirpath, db_list, db_default_user, user_list)
+		db_list_by_users = self.__db_list_by_users(db_list, db_default_user, user_list)
 		self.user_list        = user_list
 		self.db_list_by_users = db_list_by_users
 	
@@ -170,7 +171,7 @@ class Lists(object):
 		return user_list
 	
 	# Databases list by users
-	def __db_list_by_users(self, db_root_dirpath, db_list, db_default_user, user_list):
+	def __db_list_by_users(self, db_list, db_default_user, user_list):
 		db_list_by_users = {}
 		for db in db_list:
 			# Attach database to known user
@@ -264,7 +265,7 @@ class BackupCommands(object):
 			path.set(user, "sql", backup_db_type, backup_db_time)
 			# Export all databases from specific user to files
 			if backup_db_type == "full":
-				db_cmds.append("if [ \"$(ls -A \"" + path.db_dirpath + "\")\" ]; then rm \"" + path.db_dirpath + "/*\"; fi\n")
+				db_cmds.append("if [ \"$(ls -A " + path.db_dirpath + ")\" ]; then rm " + path.db_dirpath + "/*; fi\n")
 			if user == db_default_user:
 				# Backup database permissions
 				db_cmds.append(self.__mysqldump_permissions(path.db_dirpath, db_ignore_users))
@@ -365,8 +366,8 @@ class BackupCommands(object):
 		# http://a32.me/2010/08/7zip-differential-backup-linux-windows/
 		return("if [ -f \"" + filepath_7z + "\" ]; then rm \"" + filepath_7z + "\"; fi\n"
 				"7z u " + self.__params_7z + " -w\"" + source_dirpath + "\""
-				" \"" + filepath_7z + "\" \"" + source_dirpath + "/" + source_name + "\""
-				" -u- -up0q3r2x2y2z0w2\!\"" + user_dirpath_full + "\""
+				" \"" + user_dirpath_full + "\" \"" + source_dirpath + "/" + source_name + "\""
+				" -u- -up0q3r2x2y2z0w2\!\"" + filepath_7z + "\""
 				" > /dev/null")
 
 
