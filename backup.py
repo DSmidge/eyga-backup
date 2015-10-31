@@ -1,5 +1,5 @@
 #!/usr/bin/python
-
+# Copyright Eyga.net
 # For python 2.7
 
 # Import modules
@@ -66,9 +66,12 @@ class Config(object):
 class BackupInfo(object):
 	
 	def __init__(self, script_runtime, split_day_by_hour, split_week_by_day, full_backup_weeks):
-		if split_day_by_hour > 23: split_day_by_hour = 0
-		if split_week_by_day > 06: split_week_by_day = 0
-		if full_backup_weeks < 02: full_backup_weeks = 2
+		if split_day_by_hour > 23:
+			split_day_by_hour = 0
+		if split_week_by_day > 6:
+			split_week_by_day = 0
+		if full_backup_weeks < 2:
+			full_backup_weeks = 2
 		self.__set_shifted_time(script_runtime, split_day_by_hour, split_week_by_day, full_backup_weeks)
 	
 	# Shift time to hour of full backup
@@ -145,7 +148,8 @@ class Lists(object):
 		self.db_list_by_users = db_list_by_users
 	
 	# Database list
-	def __db_list(self, db_root_dirpath, db_ignore):
+	@staticmethod
+	def __db_list(db_root_dirpath, db_ignore):
 		db_list = os.listdir(db_root_dirpath)
 		# Add files to ignored list
 		for db in db_list:
@@ -160,7 +164,8 @@ class Lists(object):
 		return db_list
 	
 	# User list
-	def __user_list(self, user_root_dirpath, user_ignore):
+	@staticmethod
+	def __user_list(user_root_dirpath, user_ignore):
 		user_list = os.listdir(user_root_dirpath)
 		# Remove ignored
 		for user in user_ignore:
@@ -171,7 +176,8 @@ class Lists(object):
 		return user_list
 	
 	# Databases list by users
-	def __db_list_by_users(self, db_list, db_default_user, user_list):
+	@staticmethod
+	def __db_list_by_users(db_list, db_default_user, user_list):
 		db_list_by_users = {}
 		for db in db_list:
 			# Attach database to known user
@@ -199,7 +205,7 @@ class BackupCommands(object):
 			self.__user_root_dirpath    = user_root_dirpath
 		
 		# Set needed paths
-		def set(self, user, backup_x, backup_x_type, backup_x_time):
+		def __set(self, user, backup_x, backup_x_type, backup_x_time):
 			backup_dirpath       = self.__backup_dirpath
 			backup_time          = self.__backup_time
 			db_temp_dirpath_full = self.__db_temp_dirpath_full
@@ -207,7 +213,7 @@ class BackupCommands(object):
 			# Create a place for storing backup files
 			backup_dirpath = backup_dirpath + "/" + user
 			if not os.path.isdir(backup_dirpath):
-				os.makedirs(backup_dirpath, mode=0755)
+				os.makedirs(backup_dirpath, mode=755)
 			backup_filename = user + "-" + backup_x + "-" + backup_x_type + "-" + backup_time + ".7z"
 			# Get dir and file info
 			if backup_x_type == "full":
@@ -224,7 +230,7 @@ class BackupCommands(object):
 				user_filepath_full = backup_dirpath + "/" + user_filename_full
 			# Create a place for storing SQL files
 			if backup_x == "sql" and not os.path.isdir(db_dirpath):
-				os.makedirs(db_dirpath, mode=0755)
+				os.makedirs(db_dirpath, mode=755)
 			# Set attributes
 			self.backup_dirpath     = backup_dirpath
 			self.backup_filename    = backup_filename
@@ -233,6 +239,8 @@ class BackupCommands(object):
 			self.db_dirpath_full    = db_dirpath_full
 			self.user_filename_full = user_filename_full
 			self.user_filepath_full = user_filepath_full
+		def set(self, user, backup_x, backup_x_type, backup_x_time):
+			self.__set(user, backup_x, backup_x_type, backup_x_time)
 	
 	def __init__(self, script_runtime, script_dirpath, debug_mode, backup_dirpath, backup_time,
 				db_temp_dirpath_full, db_temp_dirpath_diff, user_root_dirpath,
@@ -249,7 +257,7 @@ class BackupCommands(object):
 		self.__db_temp_dirpath_full = db_temp_dirpath_full
 		self.__db_temp_dirpath_diff = db_temp_dirpath_diff
 		self.__user_root_dirpath    = user_root_dirpath
-		self.__params_mysqldump     = password_db + " --compress --skip-extended-insert --single-transaction --routines --triggers"
+		self.__params_mysqldump     = password_db + " --compress --skip-extended-insert --single-transaction --routines --triggers --events"
 		self.__params_mysqloptimize = password_db + " --compress --silent"
 		self.__params_7z            = password_7z + " -mhe=on -mx5 -mf=off -ms=e -mmt=off"
 	
@@ -321,7 +329,7 @@ class BackupCommands(object):
 		cmd = "\n".join(cmds)
 		if not self.__debug_mode:
 			start = datetime.now()
-			subprocess.call(cmd, shell=True);
+			subprocess.call(cmd, shell=True)
 			stop = datetime.now()
 			with open(backup_dirpath + "/backup.log", "a") as log:
 				log.write(", " + backup_x + " = " + str(round((stop - start).total_seconds(), 1)) + "s")
@@ -352,7 +360,7 @@ class BackupCommands(object):
 	
 	def __7z_add(self, source_dirpath, source_name, backup_dirpath, backup_filename):
 		if not os.path.isdir(backup_dirpath):
-			os.makedirs(backup_dirpath, mode=0755)
+			os.makedirs(backup_dirpath, mode=755)
 		filepath_7z = backup_dirpath + "/" + backup_filename
 		return("if [ -f \"" + filepath_7z + "\" ]; then rm \"" + filepath_7z + "\"; fi\n"
 				"7z a " + self.__params_7z + " -w\"" + source_dirpath + "\""
@@ -402,23 +410,24 @@ def execute_at_runtime(script_runtime, debug_mode):
 	cmds.execute(config.backup_dirpath, "db_gd", db_cmds_gd)
 	cmds.execute(config.backup_dirpath, "user_gd", user_cmds_gd)
 
+
 # Main
 if len(sys.argv) == 1:
 	execute_at_runtime(datetime.now(), False)
 else:
 	# Debug
-	print "# List of backup.py commands"
-	script_runtime = datetime(2015, 01, 03, 4)
-	print "\n\n# db = full, user = full, " + script_runtime.isoformat(' ')
+	print("# List of backup.py commands")
+	script_runtime = datetime(2015, 1, 3, 4)
+	print("\n\n# db = full, user = full, " + script_runtime.isoformat(' '))
 	execute_at_runtime(script_runtime, True)
-	script_runtime = datetime(2015, 01, 03, 5)
-	print "\n\n# db = diff, user = none, " + script_runtime.isoformat(' ')
+	script_runtime = datetime(2015, 1, 3, 5)
+	print("\n\n# db = diff, user = none, " + script_runtime.isoformat(' '))
 	execute_at_runtime(script_runtime, True)
-	script_runtime = datetime(2015, 01, 04, 4)
-	print "\n\n# db = full, user = diff, " + script_runtime.isoformat(' ')
+	script_runtime = datetime(2015, 1, 4, 4)
+	print("\n\n# db = full, user = diff, " + script_runtime.isoformat(' '))
 	execute_at_runtime(script_runtime, True)
-	script_runtime = datetime(2015, 01, 04, 5)
-	print "\n\n# db = diff, user = none, " + script_runtime.isoformat(' ')
+	script_runtime = datetime(2015, 1, 4, 5)
+	print("\n\n# db = diff, user = none, " + script_runtime.isoformat(' '))
 	execute_at_runtime(script_runtime, True)
 	# Test shifting time
 	config = Config()

@@ -1,16 +1,15 @@
 #!/usr/bin/python
-
+# Copyright Eyga.net
 # For python 2.7
-# Run it manualy first to set the credentials
+# Run it manually first to set the credentials
 
 # Import modules
 import ConfigParser
 import os.path
-import httplib2
 import sys
-from apiclient import errors
-from apiclient.discovery import build
-from apiclient.http import MediaFileUpload
+# Used by Google
+import apiclient
+import httplib2
 from oauth2client.client import OAuth2WebServerFlow
 from oauth2client.file import Storage
 
@@ -48,7 +47,7 @@ class Config(object):
 
 
 # For uploading to Google Drive
-class GoogleDrive:
+class GoogleDrive(object):
 	credentials = None
 	
 	def __init__(self, client_id, client_secret, credentials_file):
@@ -71,12 +70,12 @@ class GoogleDrive:
 				storage.put(self.credentials)
 
 	def upload_file(self, file_path, file_name, file_desc):
-		# Create an httplib2.Http object and authorize it with our credentials
+		# Create a Http object and authorize it with our credentials
 		http = httplib2.Http()
 		http = self.credentials.authorize(http)
-		drive_service = build('drive', 'v2', http=http)
+		drive_service = apiclient.discovery.build('drive', 'v2', http=http)
 		# File contents
-		media_body = MediaFileUpload(file_path, mimetype='application/octet-stream', resumable=True)
+		media_body = apiclient.http.MediaFileUpload(file_path, mimetype='application/octet-stream', resumable=True)
 		# Does the file exist?
 		file_id = None
 		param = {
@@ -86,25 +85,32 @@ class GoogleDrive:
 		if len(files['items']) > 0:
 			file_id = files['items'][0]['id']
 		# Upload new contents
-		if file_id != None:
+		if file_id is not None:
 			# Update the file
 			body = {
 				'description': file_desc
 			}
-			file = updated_file = drive_service.files().update(
-				fileId=file_id,
-				body=body,
-				newRevision=False,
-				media_body=media_body).execute()
+			try:
+				drive_service.files().update(
+					fileId=file_id,
+					body=body,
+					newRevision=False,
+					media_body=media_body).execute()
+			except RuntimeError as e:
+				print("Error occurred when updating a file: {0}".format(e.message))
 		else:
 			# Insert the file
 			body = {
 				'title': file_name,
 				'description': file_desc
 			}
-			file = drive_service.files().insert(
-				body=body,
-				media_body=media_body).execute()
+			try:
+				drive_service.files().insert(
+					body=body,
+					media_body=media_body).execute()
+			except RuntimeError as e:
+				print("Error occurred when updating a file: {0}".format(e.message))
+
 
 # Main
 if len(sys.argv) == 3:
@@ -118,6 +124,7 @@ if len(sys.argv) == 3:
 else:
 	print("Expected 'filepath' and 'filedesc' for parameters.")
 	sys.exit(1)
+
 
 # TODO:
 #	Store backup files in specific folder
