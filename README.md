@@ -19,6 +19,7 @@ Installation and configuration:
 - install p7zip-full package
 - install python libraries https://developers.google.com/api-client-library/python/start/installation
 - rename google_credentials.sample.cfg to google_credentials.cfg and set parameters with the help of https://console.developers.google.com/project
+- run googledrive.py to link the app with Google Drive
 - rename passwords.sample.cfg to passwords.cfg and set passwords for database and 7z
 - rename settings.sample.cfg to settings.cfg and set source and destination folders, etc.
 - add a cron/job schedule to run backup.py once an hour

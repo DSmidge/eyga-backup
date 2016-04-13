@@ -73,7 +73,10 @@ class GoogleDrive(object):
 		# Create a Http object and authorize it with our credentials
 		http = httplib2.Http()
 		http = self.credentials.authorize(http)
-		drive_service = apiclient.discovery.build('drive', 'v2', http=http)
+		try:
+			drive_service = apiclient.discovery.build('drive', 'v2', http=http)
+		except e:
+			print("Error building Google Drive service object: {0}".format(e.message))
 		# File contents
 		media_body = apiclient.http.MediaFileUpload(file_path, mimetype='application/octet-stream', resumable=True)
 		# Does the file exist?
@@ -96,8 +99,8 @@ class GoogleDrive(object):
 					body=body,
 					newRevision=False,
 					media_body=media_body).execute()
-			except RuntimeError as e:
-				print("Error occurred when updating a file: {0}".format(e.message))
+			except e:
+				print("Error occurred when updating a file on Google Drive: {0}".format(e.message))
 		else:
 			# Insert the file
 			body = {
@@ -108,8 +111,8 @@ class GoogleDrive(object):
 				drive_service.files().insert(
 					body=body,
 					media_body=media_body).execute()
-			except RuntimeError as e:
-				print("Error occurred when updating a file: {0}".format(e.message))
+			except e:
+				print("Error occurred when inserting a file to Google Drive: {0}".format(e.message))
 
 
 # Main

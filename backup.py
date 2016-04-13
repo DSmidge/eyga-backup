@@ -344,7 +344,8 @@ class BackupCommands(object):
 				" > \"" + db_dirpath + "/mysql.sql\"")
 	
 	def __mysqldump_full(self, db, db_dirpath):
-		return("mysqldump " + self.__params_mysqldump + " --databases " + db + ""
+		return("{ echo \"SET SESSION UNIQUE_CHECKS = 0;\\nSET SESSION FOREIGN_KEY_CHECKS = 0;\\n\\n\"; "
+				"mysqldump " + self.__params_mysqldump + " --databases " + db + "; }"
 				" > \"" + db_dirpath + "/" + db + ".sql\"")
 	
 	def __mysqldump_diff(self, db, db_dirpath, db_dirpath_full):
