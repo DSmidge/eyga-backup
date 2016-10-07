@@ -43,6 +43,7 @@ class Config(object):
 		self.db_root_dirpath      = config.get(config_section, "db_root_dirpath")
 		self.db_temp_dirpath_full = config.get(config_section, "db_temp_dirpath_full")
 		self.db_temp_dirpath_diff = config.get(config_section, "db_temp_dirpath_diff")
+		self.db_binlog_dirpath    = config.get(config_section, "db_binlog_dirpath")
 		self.db_default_user      = config.get(config_section, "db_default_user")
 		self.db_ignore            = config.get(config_section, "db_ignore").split("|")
 		self.db_ignore_users      = config.get(config_section, "db_ignore_users")
@@ -51,6 +52,7 @@ class Config(object):
 		self.split_week_by_day    = config.getint(config_section, "split_week_by_day")
 		self.split_day_by_hour    = config.getint(config_section, "split_day_by_hour")
 		self.full_backup_weeks    = config.getint(config_section, "full_backup_weeks")
+		self.gd_upload_enable     = config.getint(config_section, "gd_upload_enable")
 	
 	# Read passwords form config file
 	def __passwords(self, config_filename):
@@ -243,7 +245,7 @@ class BackupCommands(object):
 			self.__set(user, backup_x, backup_x_type, backup_x_time)
 	
 	def __init__(self, script_runtime, script_dirpath, debug_mode, backup_dirpath, backup_time,
-				db_temp_dirpath_full, db_temp_dirpath_diff, user_root_dirpath,
+				db_temp_dirpath_full, db_temp_dirpath_diff, db_binlog_dirpath, user_root_dirpath,
 				password_db, password_7z):
 		# Log execution to file
 		if not debug_mode:
@@ -256,9 +258,11 @@ class BackupCommands(object):
 		self.__backup_time          = backup_time
 		self.__db_temp_dirpath_full = db_temp_dirpath_full
 		self.__db_temp_dirpath_diff = db_temp_dirpath_diff
+		self.__db_binlog_dirpath    = db_binlog_dirpath
 		self.__user_root_dirpath    = user_root_dirpath
-		self.__params_mysqldump     = password_db + " --compress --skip-extended-insert --single-transaction --routines --triggers --events"
-		self.__params_mysqloptimize = password_db + " --compress --silent"
+		self.__params_mysql         = password_db
+		self.__params_mysqldump     = password_db + " --skip-extended-insert --single-transaction --routines --triggers --events"
+		self.__params_mysqloptimize = password_db + " --silent"
 		self.__params_7z            = password_7z + " -mhe=on -mx5 -mf=off -ms=e -mmt=off"
 	
 	# Prepare commands for backup of databases
@@ -275,6 +279,12 @@ class BackupCommands(object):
 			if backup_db_type == "full":
 				db_cmds.append("if [ \"$(ls -A " + path.db_dirpath + ")\" ]; then rm " + path.db_dirpath + "/*; fi\n")
 			if user == db_default_user:
+				# Backup binary logs
+				if self.__db_binlog_dirpath != "":
+					if backup_db_type == "full":
+						db_cmds.insert(0, self.__mysql_flush_logs())
+					if backup_db_type == "diff":
+						db_cmds.append(self.__mysql_backup_binlog(path.db_dirpath))
 				# Backup database permissions
 				db_cmds.append(self.__mysqldump_permissions(path.db_dirpath, db_ignore_users))
 			for db in db_list_by_users[user]:
@@ -282,7 +292,7 @@ class BackupCommands(object):
 				if backup_db_type == "full":
 					db_cmds.append(self.__mysqldump_full(db, path.db_dirpath))
 				# Diff backup
-				if backup_db_type == "diff":
+				if backup_db_type == "diff" and self.__db_binlog_dirpath == "":
 					db_cmds.append(self.__mysqldump_diff(db, path.db_dirpath, path.db_dirpath_full))
 			# Compress databases
 			db_cmds.append(self.__7z_add(path.db_temp_dirpath, user, path.backup_dirpath, path.backup_filename))
@@ -343,6 +353,9 @@ class BackupCommands(object):
 				" | grep --invert-match --extended-regexp \"^INSERT INTO \`user\` VALUES \('(\w|\-|\.)*','(" + db_ignore_users + ")',\""
 				" > \"" + db_dirpath + "/mysql.sql\"")
 	
+	def __mysql_flush_logs(self):
+		return("echo \"FLUSH LOGS;\" | mysql " + self.__params_mysql)
+	
 	def __mysqldump_full(self, db, db_dirpath):
 		return("{ echo \"SET SESSION UNIQUE_CHECKS = 0;\\nSET SESSION FOREIGN_KEY_CHECKS = 0;\\n\\n\"; "
 				"mysqldump " + self.__params_mysqldump + " --databases " + db + "; }"
@@ -354,6 +367,13 @@ class BackupCommands(object):
 		return("mysqldump " + self.__params_mysqldump + " --databases " + db + ""
 				" | diff \"" + db_dirpath_full + "/" + db + ".sql\" -"
 				" > \"" + db_dirpath + "/" + db + ".sql.diff\"")
+	
+	def __mysql_backup_binlog(self, db_dirpath):
+		return("loc1=`echo \"SHOW BINARY LOGS;\" | mysql " + self.__params_mysql + " | tail -n1 | awk '{print $1}'`;"
+				"" + self.__mysql_flush_logs() + ""
+				#"loc2=`echo $loc1 | awk -F\. '{print $1}'`;"
+				#"rm " + self.__db_binlog_dirpath + "/$loc2.*;"
+				"cp -p \"" + self.__db_binlog_dirpath + "/$loc1\" \"" + db_dirpath + "\"")
 	
 	def __mysqloptimize(self):
 		return("mysqloptimize " + self.__params_mysqloptimize + " --all-databases"
@@ -393,7 +413,7 @@ def execute_at_runtime(script_runtime, debug_mode):
 			config.user_root_dirpath, config.user_ignore)
 	# Prepare database and user dirs commands for archiving
 	cmds = BackupCommands(script_runtime, config.script_dirpath, debug_mode, config.backup_dirpath, info.backup_time,
-			config.db_temp_dirpath_full, config.db_temp_dirpath_diff, config.user_root_dirpath,
+			config.db_temp_dirpath_full, config.db_temp_dirpath_diff, config.db_binlog_dirpath, config.user_root_dirpath,
 			config.password_db, config.password_7z)
 	db_cmds = cmds.db_cmds(info.backup_db_type, info.backup_db_time,
 			lists.db_list_by_users, config.db_default_user, config.db_ignore_users, info.db_optimize)
@@ -408,8 +428,9 @@ def execute_at_runtime(script_runtime, debug_mode):
 	# Execute backup commands
 	cmds.execute(config.backup_dirpath, "db", db_cmds_core)
 	cmds.execute(config.backup_dirpath, "user", user_cmds_core)
-	cmds.execute(config.backup_dirpath, "db_gd", db_cmds_gd)
-	cmds.execute(config.backup_dirpath, "user_gd", user_cmds_gd)
+	if config.gd_upload_enable == "1":
+		cmds.execute(config.backup_dirpath, "db_gd", db_cmds_gd)
+		cmds.execute(config.backup_dirpath, "user_gd", user_cmds_gd)
 
 
 # Main
@@ -440,7 +461,7 @@ else:
 # TODO:
 #	Generate a file with chmod and chown commands (7z doesn't store this info)
 #	Generate a file with restore commands (mysql imports, 7z extracts)
-#	Detect if no full backup exists for databases and user files
 #	Join methods for some mysqldump/7z commands
 #	Performance test: store full SQL files with gzip/7z and make diff on their stream (7z -si and -so switches)
 #	Add full SQL files directly in 7z file (will ignore solid archives; maybe with -si, -so switches?)
+#	Change '__mysql_backup_binlog' so it backups all binlog files (changed date) created from last full backup time specified by 'split_day_by_hour' setting.

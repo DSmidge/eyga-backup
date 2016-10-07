@@ -18,8 +18,11 @@ Some performance improvements could be made - check TODO at the end of Python fi
 Installation and configuration:
 - install p7zip-full package
 - install python libraries https://developers.google.com/api-client-library/python/start/installation
-- rename google_credentials.sample.cfg to google_credentials.cfg and set parameters with the help of https://console.developers.google.com/project
-- run googledrive.py to link the app with Google Drive
+- create a new "Google APIs" project on https://console.developers.google.com/project
+- enable "Drive API" on https://console.developers.google.com/apis/library
+- create "OAuth client ID" credentials to get client "id" and "sectet" on https://console.developers.google.com/apis/credentials
+- rename google_credentials.sample.cfg to google_credentials.cfg and set clinet "id" and "secret" parameters
+- run googledrive.py directly to link the app with Google Drive
 - rename passwords.sample.cfg to passwords.cfg and set passwords for database and 7z
 - rename settings.sample.cfg to settings.cfg and set source and destination folders, etc.
-- add a cron/job schedule to run backup.py once an hour
+- add a cron/job schedule to run backup.py once per hour
