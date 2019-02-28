@@ -44,6 +44,7 @@ class Config(object):
 		self.db_temp_dirpath_full = config.get(config_section, "db_temp_dirpath_full")
 		self.db_temp_dirpath_diff = config.get(config_section, "db_temp_dirpath_diff")
 		self.db_binlog_dirpath    = config.get(config_section, "db_binlog_dirpath")
+		self.db_binlog_rm_hours   = config.get(config_section, "db_binlog_rm_hours")
 		self.db_default_user      = config.get(config_section, "db_default_user")
 		self.db_ignore            = config.get(config_section, "db_ignore").split("|")
 		self.db_ignore_users      = config.get(config_section, "db_ignore_users")
@@ -212,11 +213,6 @@ class BackupCommands(object):
 			backup_time          = self.__backup_time
 			db_temp_dirpath_full = self.__db_temp_dirpath_full
 			db_temp_dirpath_diff = self.__db_temp_dirpath_diff
-			# Create a place for storing backup files
-			backup_dirpath = backup_dirpath + "/" + user
-			if not os.path.isdir(backup_dirpath):
-				os.makedirs(backup_dirpath, mode=755)
-			backup_filename = user + "-" + backup_x + "-" + backup_x_type + "-" + backup_time + ".7z"
 			# Get dir and file info
 			if backup_x_type == "full":
 				db_temp_dirpath    = db_temp_dirpath_full
@@ -230,6 +226,11 @@ class BackupCommands(object):
 				db_dirpath_full    = db_temp_dirpath_full + "/" + user
 				user_filename_full = user + "-" + backup_x + "-full-" + backup_x_time + ".7z"
 				user_filepath_full = backup_dirpath + "/" + user_filename_full
+			# Create a place for storing backup files
+			backup_dirpath = backup_dirpath + "/" + user
+			if not os.path.isdir(backup_dirpath):
+				os.makedirs(backup_dirpath, mode=755)
+			backup_filename = user + "-" + backup_x + "-" + backup_x_type + "-" + backup_time + ".7z"
 			# Create a place for storing SQL files
 			if backup_x == "sql" and not os.path.isdir(db_dirpath):
 				os.makedirs(db_dirpath, mode=755)
@@ -245,8 +246,8 @@ class BackupCommands(object):
 			self.__set(user, backup_x, backup_x_type, backup_x_time)
 	
 	def __init__(self, script_runtime, script_dirpath, debug_mode, backup_dirpath, backup_time,
-				db_temp_dirpath_full, db_temp_dirpath_diff, db_binlog_dirpath, user_root_dirpath,
-				password_db, password_7z):
+				db_temp_dirpath_full, db_temp_dirpath_diff, db_binlog_dirpath, db_binlog_rm_hours,
+				user_root_dirpath, password_db, password_7z):
 		# Log execution to file
 		if not debug_mode:
 			with open(backup_dirpath + "/backup.log", "a") as log:
@@ -259,6 +260,7 @@ class BackupCommands(object):
 		self.__db_temp_dirpath_full = db_temp_dirpath_full
 		self.__db_temp_dirpath_diff = db_temp_dirpath_diff
 		self.__db_binlog_dirpath    = db_binlog_dirpath
+		self.__db_binlog_rm_hours   = db_binlog_rm_hours
 		self.__user_root_dirpath    = user_root_dirpath
 		self.__params_mysql         = password_db
 		self.__params_mysqldump     = password_db + " --skip-extended-insert --single-transaction --routines --triggers --events"
@@ -276,13 +278,13 @@ class BackupCommands(object):
 		for user in db_list_by_users:
 			path.set(user, "sql", backup_db_type, backup_db_time)
 			# Export all databases from specific user to files
-			if backup_db_type == "full":
-				db_cmds.append("if [ \"$(ls -A " + path.db_dirpath + ")\" ]; then rm " + path.db_dirpath + "/*; fi\n")
+			db_cmds.append("if [ \"$(ls -A " + path.db_dirpath + ")\" ]; then rm " + path.db_dirpath + "/*; fi\n")
 			if user == db_default_user:
 				# Backup binary logs
 				if self.__db_binlog_dirpath != "":
 					if backup_db_type == "full":
 						db_cmds.insert(0, self.__mysql_flush_logs())
+						db_cmds.insert(1, self.__mysql_purge_logs())
 					if backup_db_type == "diff":
 						db_cmds.append(self.__mysql_backup_binlog(path.db_dirpath))
 				# Backup database permissions
@@ -342,7 +344,8 @@ class BackupCommands(object):
 			subprocess.call(cmd, shell=True)
 			stop = datetime.now()
 			with open(backup_dirpath + "/backup.log", "a") as log:
-				log.write(", " + backup_x + " = " + str(round((stop - start).total_seconds(), 1)) + "s")
+				log.write(", " + backup_x + " = " + str(round((stop - start).total_seconds(), 1)) + "s, command:\n")
+				log.write(cmd)
 		else:
 			print(cmd)
 	
@@ -355,6 +358,12 @@ class BackupCommands(object):
 	
 	def __mysql_flush_logs(self):
 		return("echo \"FLUSH LOGS;\" | mysql " + self.__params_mysql)
+	
+	def __mysql_purge_logs(self):
+		if self.__db_binlog_rm_hours.isdigit() and int(self.__db_binlog_rm_hours) > 0:
+			return("echo \"PURGE BINARY LOGS BEFORE '" + (datetime.now() - timedelta(hours=int(self.__db_binlog_rm_hours))).isoformat() + "';\" | mysql " + self.__params_mysql)
+		else:
+			return("")
 	
 	def __mysqldump_full(self, db, db_dirpath):
 		return("{ echo \"SET SESSION UNIQUE_CHECKS = 0;\\nSET SESSION FOREIGN_KEY_CHECKS = 0;\\n\\n\"; "
@@ -369,11 +378,9 @@ class BackupCommands(object):
 				" > \"" + db_dirpath + "/" + db + ".sql.diff\"")
 	
 	def __mysql_backup_binlog(self, db_dirpath):
-		return("loc1=`echo \"SHOW BINARY LOGS;\" | mysql " + self.__params_mysql + " | tail -n1 | awk '{print $1}'`;"
-				"" + self.__mysql_flush_logs() + ""
-				#"loc2=`echo $loc1 | awk -F\. '{print $1}'`;"
-				#"rm " + self.__db_binlog_dirpath + "/$loc2.*;"
-				"cp -p \"" + self.__db_binlog_dirpath + "/$loc1\" \"" + db_dirpath + "\"")
+		return("loc1=`echo \"SHOW BINARY LOGS;\" | mysql " + self.__params_mysql + " | tail -n1 | awk '{print $1}'`\n"
+				"" + self.__mysql_flush_logs() + "\n"
+				"ln -s \"" + self.__db_binlog_dirpath + "/$loc1\" \"" + db_dirpath + "/$loc1\"")
 	
 	def __mysqloptimize(self):
 		return("mysqloptimize " + self.__params_mysqloptimize + " --all-databases"
@@ -413,8 +420,8 @@ def execute_at_runtime(script_runtime, debug_mode):
 			config.user_root_dirpath, config.user_ignore)
 	# Prepare database and user dirs commands for archiving
 	cmds = BackupCommands(script_runtime, config.script_dirpath, debug_mode, config.backup_dirpath, info.backup_time,
-			config.db_temp_dirpath_full, config.db_temp_dirpath_diff, config.db_binlog_dirpath, config.user_root_dirpath,
-			config.password_db, config.password_7z)
+			config.db_temp_dirpath_full, config.db_temp_dirpath_diff, config.db_binlog_dirpath, config.db_binlog_rm_hours,
+			config.user_root_dirpath, config.password_db, config.password_7z)
 	db_cmds = cmds.db_cmds(info.backup_db_type, info.backup_db_time,
 			lists.db_list_by_users, config.db_default_user, config.db_ignore_users, info.db_optimize)
 	(db_cmds_core, db_cmds_gd) = (None, None)
@@ -465,3 +472,4 @@ else:
 #	Performance test: store full SQL files with gzip/7z and make diff on their stream (7z -si and -so switches)
 #	Add full SQL files directly in 7z file (will ignore solid archives; maybe with -si, -so switches?)
 #	Change '__mysql_backup_binlog' so it backups all binlog files (changed date) created from last full backup time specified by 'split_day_by_hour' setting.
+
