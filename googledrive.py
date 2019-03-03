@@ -64,7 +64,7 @@ class GoogleDrive(object):
 				self.credentials = storage.get()
 			else:
 				authorize_url = flow.step1_get_authorize_url()
-				print 'Go to the following link in your browser: ' + authorize_url
+				print('Go to the following link in your browser: ' + authorize_url)
 				code = raw_input('Enter verification code: ').strip()
 				self.credentials = flow.step2_exchange(code)
 				storage.put(self.credentials)

@@ -25,4 +25,3 @@ Installation and configuration:
 - rename passwords.sample.cfg to passwords.cfg and set passwords for database and 7z
 - rename settings.sample.cfg to settings.cfg and set source and destination folders, etc.
 - add a cron/job schedule to run backup.py once per hour
-- don't write full logs to disk if using binary logs
