@@ -289,28 +289,26 @@ class BackupCommands(object):
 						db_cmds.insert(0, self.__mysql_flush_logs())
 						db_cmds.insert(1, self.__mysql_purge_logs())
 					if backup_db_type == "diff":
-						db_cmds.append(self.__mysql_backup_binlog(path.db_dirpath))
-					# Backup database permissions
-					db_cmds.append(self.__mysqldump_permissions(path.db_dirpath, db_ignore_users, False) + ""
-							"" + self.__7z_add_std(user, path.backup_dirpath, path.backup_filename))
-				else:
-					# Backup database permissions
-					db_cmds_7z.append(self.__mysqldump_permissions(path.db_dirpath, db_ignore_users, True))
+						db_cmds_7z.append(self.__mysql_backup_binlog(self.__db_binlog_dirpath, path.backup_dirpath, path.backup_filename))
+				# Backup database permissions
+				db_cmds_7z.append(self.__mysqldump_permissions(path.db_dirpath, db_ignore_users, False) + ""
+						"" + self.__7z_add_std("mysql.sql", path.backup_dirpath, path.backup_filename))
 			for db in db_list_by_users[user]:
 				# Full backup with binary logs
 				if backup_db_type == "full" and self.__db_binlog_dirpath != "":
-					db_cmds.append(self.__mysqldump_full(db, path.db_dirpath, False) + ""
-							"" + self.__7z_add_std(user, path.backup_dirpath, path.backup_filename))
+					db_cmds_7z.append(self.__mysqldump_full(db, path.db_dirpath, False) + ""
+							"" + self.__7z_add_std(db + ".sql", path.backup_dirpath, path.backup_filename))
 				# Full backup
 				if backup_db_type == "full" and self.__db_binlog_dirpath == "":
-					db_cmds_7z.append(self.__mysqldump_full(db, path.db_dirpath, True))
+					db_cmds.append(self.__mysqldump_full(db, path.db_dirpath, True))
 				# Diff backup
 				if backup_db_type == "diff" and self.__db_binlog_dirpath == "":
-					db_cmds_7z.append(self.__mysqldump_diff(db, path.db_dirpath, path.db_dirpath_full, True))
+					db_cmds_7z.append(self.__mysqldump_diff(db, path.db_dirpath, path.db_dirpath_full, False) + ""
+					"" + self.__7z_add_std(db + ".sql.diff", path.backup_dirpath, path.backup_filename))
 			# Compress databases
+			db_cmds.append(self.__7z_add(path.db_temp_dirpath, user, path.backup_dirpath, path.backup_filename))
 			if len(db_cmds_7z) > 0:
 				db_cmds.extend(db_cmds_7z)
-				db_cmds.append(self.__7z_add(path.db_temp_dirpath, user, path.backup_dirpath, path.backup_filename))
 			# Upload to Google Drive
 			gd_file = path.backup_dirpath + "/" + path.backup_filename
 			if os.path.isfile(gd_file):
@@ -391,10 +389,15 @@ class BackupCommands(object):
 				" | diff \"" + db_dirpath_full + "/" + db + ".sql\" -"
 				"" + (" > \"" + db_dirpath + "/" + db + ".sql.diff\"" if to_file else ""))
 	
-	def __mysql_backup_binlog(self, db_dirpath):
-		return("loc1=`echo \"SHOW BINARY LOGS;\" | mysql " + self.__params_mysql + " | tail -n1 | awk '{print $1}'`\n"
+	def __mysql_backup_binlog(self, db_binlog_dirpath, backup_dirpath, backup_filename):
+		filepath_7z = backup_dirpath + "/" + backup_filename
+		return("logs=`echo \"SHOW BINARY LOGS;\" | mysql " + self.__params_mysql + " | tail -n1 | awk '{print $1}'`\n"
 				"" + self.__mysql_flush_logs() + "\n"
-				"ln -s \"" + self.__db_binlog_dirpath + "/$loc1\" \"" + db_dirpath + "/$loc1\"")
+				"for log in $logs; do\n"
+				"    7z a " + self.__params_7z + " -w\"" + db_binlog_dirpath + "\""
+				" \"" + filepath_7z + "\" \"" + db_binlog_dirpath + "/$log\""
+				" > /dev/null\n"
+				"done" + "\n")
 	
 	def __mysqloptimize(self):
 		return("mysqloptimize " + self.__params_mysqloptimize + " --all-databases"
@@ -488,7 +491,4 @@ else:
 #	Generate a file with chmod and chown commands (7z doesn't store this info)
 #	Generate a file with restore commands (mysql imports, 7z extracts)
 #	Join methods for some mysqldump/7z commands
-#	Performance test: store full SQL files with gzip/7z and make diff on their stream (7z -si and -so switches)
-#	Add full SQL files directly in 7z file (will ignore solid archives; maybe with -si, -so switches?)
-#	Change '__mysql_backup_binlog' so it backups all binlog files (changed date) created from last full backup time specified by 'split_day_by_hour' setting.
-#	Don't write diff logs to (temp) disk, but add them using stream.
+#	Remove passwords from 7z calls: "7z a -p* ".
