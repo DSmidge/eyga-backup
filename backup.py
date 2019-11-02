@@ -52,6 +52,7 @@ class Config(object):
 		self.db_ignore_users      = config.get(config_section, "db_ignore_users")
 		self.user_root_dirpath    = config.get(config_section, "user_root_dirpath")
 		self.user_ignore          = config.get(config_section, "user_ignore").split("|")
+		self.user_path_ignore     = config.get(config_section, "user_path_ignore")
 		self.split_week_by_day    = config.getint(config_section, "split_week_by_day")
 		self.split_day_by_hour    = config.getint(config_section, "split_day_by_hour")
 		self.full_backup_weeks    = config.getint(config_section, "full_backup_weeks")
@@ -145,11 +146,13 @@ class BackupInfo(object):
 # Lists of databases and users
 class Lists(object):
 	
-	def __init__(self, db_root_dirpath, db_default_user, db_ignore, user_root_dirpath, user_ignore):
-		db_list          = self.__db_list(db_root_dirpath, db_ignore)
-		user_list        = self.__user_list(user_root_dirpath, user_ignore)
-		db_list_by_users = self.__db_list_by_users(db_list, db_default_user, user_list)
+	def __init__(self, db_root_dirpath, db_default_user, db_ignore, user_root_dirpath, user_ignore, user_path_ignore):
+		db_list               = self.__db_list(db_root_dirpath, db_ignore)
+		user_list             = self.__user_list(user_root_dirpath, user_ignore)
+		user_path_ignore_list = self.__user_path_ignore_list(user_path_ignore)
+		db_list_by_users      = self.__db_list_by_users(db_list, db_default_user, user_list)
 		self.user_list        = user_list
+		self.user_path_ignore_list = user_path_ignore_list
 		self.db_list_by_users = db_list_by_users
 	
 	# Database list
@@ -180,6 +183,16 @@ class Lists(object):
 		user_list.sort()
 		return user_list
 	
+	# User path ignore list
+	@staticmethod
+	def __user_path_ignore_list(user_path_ignore):
+		user_path_ignore_list = {}
+		user_and_path_ignore_list = user_path_ignore.split("||")
+		for user_and_path_ignore in user_and_path_ignore_list:
+			user, path_ignore = user_and_path_ignore.split(":", 1)
+			user_path_ignore_list[user] = " -x\!\"" + user + "/" + ("\" -x\!\"" + user + "/").join(path_ignore.split("|")) + "\""
+		return user_path_ignore_list
+
 	# Databases list by users
 	@staticmethod
 	def __db_list_by_users(db_list, db_default_user, user_list):
@@ -267,7 +280,7 @@ class BackupCommands(object):
 		self.__params_mysql         = password_db
 		self.__params_mysqldump     = password_db + " --skip-extended-insert --single-transaction --routines --triggers --events"
 		self.__params_mysqloptimize = password_db + " --silent"
-		self.__params_7z            = password_7z + " -mhe=on -mx5 -mf=off -ms=e -mmt=off"
+		self.__params_7z            = password_7z + " -bd -mhe=on -mx5 -mf=off -ms=e -mmt=off"
 	
 	# Prepare commands for backup of databases
 	def db_cmds(self, backup_db_type, backup_db_time, db_list_by_users, db_default_user, db_ignore_users, db_optimize):
@@ -306,7 +319,7 @@ class BackupCommands(object):
 					db_cmds_7z.append(self.__mysqldump_diff(db, path.db_dirpath, path.db_dirpath_full, False) + ""
 					"" + self.__7z_add_std(db + ".sql.diff", path.backup_dirpath, path.backup_filename))
 			# Compress databases
-			db_cmds.append(self.__7z_add(path.db_temp_dirpath, user, path.backup_dirpath, path.backup_filename))
+			db_cmds.append(self.__7z_add(path.db_temp_dirpath, user, None, path.backup_dirpath, path.backup_filename))
 			if len(db_cmds_7z) > 0:
 				db_cmds.extend(db_cmds_7z)
 			# Upload to Google Drive
@@ -320,7 +333,7 @@ class BackupCommands(object):
 		return db_cmds, db_cmds_gd
 	
 	# Prepare commands for backup of user files
-	def user_cmds(self, backup_user_type, backup_user_time, user_list):
+	def user_cmds(self, backup_user_type, backup_user_time, user_list, user_path_ignore_list):
 		user_cmds = []
 		user_cmds_gd = []
 		if backup_user_type is None:
@@ -329,12 +342,13 @@ class BackupCommands(object):
 		path = self.Path(self.__backup_dirpath, self.__backup_time, self.__db_temp_dirpath_full, self.__db_temp_dirpath_diff, self.__user_root_dirpath)
 		for user in user_list:
 			path.set(user, "user", backup_user_type, backup_user_time)
+			user_path_ignore = user_path_ignore_list.get(user)
 			# Full backup
 			if backup_user_type == "full":
-				user_cmds.append(self.__7z_add(self.__user_root_dirpath, user, path.backup_dirpath, path.backup_filename))
+				user_cmds.append(self.__7z_add(self.__user_root_dirpath, user, user_path_ignore, path.backup_dirpath, path.backup_filename))
 			# Diff backup
 			if backup_user_type == "diff":
-				user_cmds.append(self.__7z_update(self.__user_root_dirpath, user, path.backup_dirpath, path.backup_filename, path.user_filepath_full))
+				user_cmds.append(self.__7z_update(self.__user_root_dirpath, user, user_path_ignore, path.backup_dirpath, path.backup_filename, path.user_filepath_full))
 				# Upload to Google Drive
 				gd_file = path.backup_dirpath + "/" + path.backup_filename
 				if os.path.isfile(gd_file):
@@ -403,12 +417,13 @@ class BackupCommands(object):
 		return("mysqloptimize " + self.__params_mysqloptimize + " --all-databases"
 				" > \"" + self.__backup_dirpath + "/mysqloptimize.log\"")
 	
-	def __7z_add(self, source_dirpath, source_name, backup_dirpath, backup_filename):
-		if not os.path.isdir(backup_dirpath):
+	def __7z_add(self, source_dirpath, source_name, extra_params, backup_dirpath, backup_filename):
+    		if not os.path.isdir(backup_dirpath):
 			os.makedirs(backup_dirpath, mode=755)
 		filepath_7z = backup_dirpath + "/" + backup_filename
 		return("if [ -f \"" + filepath_7z + "\" ]; then rm \"" + filepath_7z + "\"; fi\n"
 				"7z a " + self.__params_7z + " -w\"" + source_dirpath + "\""
+				"" + (extra_params if extra_params != None else "") + ""
 				" \"" + filepath_7z + "\" \"" + source_dirpath + "/" + source_name + "\""
 				" > /dev/null")
 	
@@ -418,13 +433,14 @@ class BackupCommands(object):
 				" \"" + filepath_7z + "\""
 				" > /dev/null")
 
-	def __7z_update(self, source_dirpath, source_name, backup_dirpath, backup_filename, user_filepath_full):
+	def __7z_update(self, source_dirpath, source_name, extra_params, backup_dirpath, backup_filename, user_filepath_full):
 		if not os.path.isfile(user_filepath_full):
 			return("# Missing file for 7z update: " + user_filepath_full)
 		filepath_7z = backup_dirpath + "/" + backup_filename
 		# http://a32.me/2010/08/7zip-differential-backup-linux-windows/
 		return("if [ -f \"" + filepath_7z + "\" ]; then rm \"" + filepath_7z + "\"; fi\n"
 				"7z u " + self.__params_7z + " -w\"" + source_dirpath + "\""
+				"" + (extra_params if extra_params != None else "") + ""
 				" \"" + user_filepath_full + "\" \"" + source_dirpath + "/" + source_name + "\""
 				" -u- -up0q3r2x2y2z0w2\!\"" + filepath_7z + "\""
 				" > /dev/null")
@@ -439,7 +455,7 @@ def execute_at_runtime(script_runtime, debug_mode):
 			config.full_backup_weeks)
 	# List of databases and user dirs to backup
 	lists = Lists(config.db_root_dirpath, config.db_default_user, config.db_ignore,
-			config.user_root_dirpath, config.user_ignore)
+			config.user_root_dirpath, config.user_ignore, config.user_path_ignore)
 	# Prepare database and user dirs commands for archiving
 	cmds = BackupCommands(script_runtime, config.script_dirpath, debug_mode, config.backup_dirpath, info.backup_time,
 			config.db_temp_dirpath_full, config.db_temp_dirpath_diff, config.db_binlog_dirpath, config.db_binlog_rm_hours,
@@ -450,7 +466,7 @@ def execute_at_runtime(script_runtime, debug_mode):
 	if db_cmds is not None:
 		(db_cmds_core, db_cmds_gd) = db_cmds
 	user_cmds = cmds.user_cmds(info.backup_user_type, info.backup_user_time,
-			lists.user_list)
+			lists.user_list, lists.user_path_ignore_list)
 	(user_cmds_core, user_cmds_gd) = (None, None)
 	if user_cmds is not None:
 		(user_cmds_core, user_cmds_gd) = user_cmds
