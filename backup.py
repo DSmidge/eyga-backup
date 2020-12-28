@@ -280,7 +280,7 @@ class BackupCommands(object):
 		self.__db_binlog_rm_hours   = db_binlog_rm_hours
 		self.__user_root_dirpath    = user_root_dirpath
 		self.__params_mysql         = password_db
-		self.__params_mysqldump     = password_db + " --skip-extended-insert --single-transaction --routines --triggers --events --no-tablespace"
+		self.__params_mysqldump     = password_db + " --skip-extended-insert --single-transaction --routines --triggers --events --no-tablespaces"
 		self.__params_mysqloptimize = password_db + " --silent"
 		self.__params_7z            = password_7z + " -bd -mhe=on -mx5 -mf=off -ms=e -mmt=off"
 	
