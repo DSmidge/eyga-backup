@@ -381,7 +381,7 @@ class BackupCommands(object):
 			with open(backup_dirpath + "/backup.log", "a") as log:
 				log.write(", " + backup_x + " = " + str(round((stop - start).total_seconds(), 1)) + "s")
 				if backup_verbose == "1":
-					log.write(", commands:\n" + cmd)
+					log.write(", commands:\n" + cmd + " #")
 		else:
 			print(cmd)
 	
