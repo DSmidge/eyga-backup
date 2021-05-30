@@ -148,13 +148,13 @@ class BackupInfo(object):
 class Lists(object):
 	
 	def __init__(self, db_root_dirpath, db_default_user, db_ignore, user_root_dirpath, user_ignore, user_path_ignore):
-		db_list               = self.__db_list(db_root_dirpath, db_ignore)
-		user_list             = self.__user_list(user_root_dirpath, user_ignore)
-		user_path_ignore_list = self.__user_path_ignore_list(user_path_ignore)
-		db_list_by_users      = self.__db_list_by_users(db_list, db_default_user, user_list)
-		self.user_list        = user_list
+		db_list                    = self.__db_list(db_root_dirpath, db_ignore)
+		user_list                  = self.__user_list(user_root_dirpath, user_ignore)
+		user_path_ignore_list      = self.__user_path_ignore_list(user_path_ignore)
+		db_list_by_users           = self.__db_list_by_users(db_list, db_default_user, user_list)
+		self.user_list             = user_list
 		self.user_path_ignore_list = user_path_ignore_list
-		self.db_list_by_users = db_list_by_users
+		self.db_list_by_users      = db_list_by_users
 	
 	# Database list
 	@staticmethod
@@ -224,7 +224,7 @@ class BackupCommands(object):
 			self.__user_root_dirpath    = user_root_dirpath
 		
 		# Set needed paths
-		def __set(self, user, backup_x, backup_x_type, backup_x_time):
+		def set(self, user, backup_x, backup_x_type, backup_x_time):
 			backup_dirpath       = self.__backup_dirpath
 			backup_time          = self.__backup_time
 			db_temp_dirpath_full = self.__db_temp_dirpath_full
@@ -258,19 +258,13 @@ class BackupCommands(object):
 			self.db_dirpath_full    = db_dirpath_full
 			self.user_filename_full = user_filename_full
 			self.user_filepath_full = user_filepath_full
-		def set(self, user, backup_x, backup_x_type, backup_x_time):
-			self.__set(user, backup_x, backup_x_type, backup_x_time)
 	
-	def __init__(self, script_runtime, script_dirpath, debug_mode, backup_dirpath, backup_dirpath_tmp, backup_time,
+	def __init__(self, debug_mode, script_runtime, script_dirpath, backup_dirpath, backup_dirpath_tmp, backup_time,
 				db_temp_dirpath_full, db_temp_dirpath_diff, db_binlog_dirpath, db_binlog_rm_hours,
 				user_root_dirpath, password_db, password_7z):
-		# Log execution to file
-		if not debug_mode:
-			with open(backup_dirpath + "/backup.log", "a") as log:
-				log.write("\n" + script_runtime.replace(microsecond=0).isoformat(' '))
-		# Set attributes
-		self.__script_dirpath       = script_dirpath
 		self.__debug_mode           = debug_mode
+		self.__script_runtime       = script_runtime
+		self.__script_dirpath       = script_dirpath
 		self.__backup_dirpath       = backup_dirpath
 		self.__backup_dirpath_tmp   = backup_dirpath_tmp
 		self.__backup_time          = backup_time
@@ -279,10 +273,12 @@ class BackupCommands(object):
 		self.__db_binlog_dirpath    = db_binlog_dirpath
 		self.__db_binlog_rm_hours   = db_binlog_rm_hours
 		self.__user_root_dirpath    = user_root_dirpath
-		self.__params_mysql         = password_db
-		self.__params_mysqldump     = password_db + " --skip-extended-insert --single-transaction --routines --triggers --events --no-tablespaces"
-		self.__params_mysqloptimize = password_db + " --silent"
-		self.__params_7z            = password_7z + " -bd -mhe=on -mx5 -mf=off -ms=e -mmt=off"
+		self.__params_mysql         = ""
+		self.__params_mysqldump     = "--skip-extended-insert --single-transaction --routines --triggers --events --no-tablespaces"
+		self.__params_mysqloptimize = "--silent"
+		self.__params_7z            = "-bd -mhe=on -mx5 -mf=off -ms=e -mmt=off"
+		self.__password_db          = password_db
+		self.__password_7z          = password_7z
 	
 	# Prepare commands for backup of databases
 	def db_cmds(self, backup_db_type, backup_db_time, db_list_by_users, db_default_user, db_ignore_users, db_optimize):
@@ -309,13 +305,13 @@ class BackupCommands(object):
 						db_all_cmds.append(self.__mysql_backup_binlog(self.__db_binlog_dirpath, path.backup_dirpath, path.backup_filename))
 				# Backup database permissions
 				db_all_cmds.append(self.__mysqldump_permissions(path.db_dirpath, db_ignore_users, False) + ""
-						"" + self.__7z_add_std("mysql.sql", path.backup_dirpath, path.backup_filename))
+						"" + self.__7z_append("mysql.sql", path.backup_dirpath, path.backup_filename))
 			for db in db_list_by_users[user]:
 				# Full backup with binary logs
 				if backup_db_type == "full" and self.__db_binlog_dirpath != "":
 					export = True
 					db_cmds_7z.append(self.__mysqldump_full(db, path.db_dirpath, False) + ""
-							"" + self.__7z_add_std(db + ".sql", path.backup_dirpath, path.backup_filename))
+							"" + self.__7z_append(db + ".sql", path.backup_dirpath, path.backup_filename))
 				# Full backup
 				if backup_db_type == "full" and self.__db_binlog_dirpath == "":
 					export = True
@@ -324,9 +320,9 @@ class BackupCommands(object):
 				if backup_db_type == "diff" and self.__db_binlog_dirpath == "":
 					export = True
 					db_cmds_7z.append(self.__mysqldump_diff(db, path.db_dirpath, path.db_dirpath_full, False) + ""
-							"" + self.__7z_add_std(db + ".sql.diff", path.backup_dirpath, path.backup_filename))
+							"" + self.__7z_append(db + ".sql.diff", path.backup_dirpath, path.backup_filename))
 			# Compress databases
-			db_cmds.append(self.__7z_add(path.db_temp_dirpath, user, None, path.backup_dirpath, path.backup_filename))
+			db_cmds.append(self.__7z_create(path.db_temp_dirpath, user, None, path.backup_dirpath, path.backup_filename))
 			if len(db_cmds_7z) > 0:
 				db_cmds.extend(db_cmds_7z)
 			# Upload to Google Drive
@@ -355,7 +351,7 @@ class BackupCommands(object):
 			user_path_ignore = user_path_ignore_list.get(user)
 			# Full backup
 			if backup_user_type == "full":
-				user_cmds.append(self.__7z_add(self.__user_root_dirpath, user, user_path_ignore, path.backup_dirpath, path.backup_filename))
+				user_cmds.append(self.__7z_create(self.__user_root_dirpath, user, user_path_ignore, path.backup_dirpath, path.backup_filename))
 			# Diff backup
 			if backup_user_type == "diff":
 				user_cmds.append(self.__7z_update(self.__user_root_dirpath, user, user_path_ignore, path.backup_dirpath, path.backup_filename, path.user_filepath_full))
@@ -375,8 +371,10 @@ class BackupCommands(object):
 			return
 		cmd = "\n".join(cmds)
 		if not self.__debug_mode:
+			with open(backup_dirpath + "/backup.log", "a") as log:
+				log.write("\n" + self.__script_runtime.replace(microsecond=0).isoformat(' '))
 			start = datetime.now()
-			subprocess.call(cmd, shell=True)
+			subprocess.call(cmd.replace("{pwd_db}", self.__password_db).replace("{pwd_7z}", self.__password_7z), shell=True)
 			stop = datetime.now()
 			with open(backup_dirpath + "/backup.log", "a") as log:
 				log.write(", " + backup_x + " = " + str(round((stop - start).total_seconds(), 1)) + "s")
@@ -386,75 +384,83 @@ class BackupCommands(object):
 			print(cmd)
 	
 	def __mysqldump_permissions(self, db_dirpath, db_ignore_users, to_file):
-		return("{ mysqldump " + self.__params_mysqldump + " --no-create-info --databases mysql --tables db user;"
+		rcmd = ("{ mysqldump {pwd_db} " + self.__params_mysqldump + " --no-create-info --databases mysql --tables db user;"
 				" echo \"\\nFLUSH PRIVILEGES;\"; }"
 				" | sed \"17s/^$/\\nUSE \`mysql\`;\\n/\""
 				" | grep --invert-match --extended-regexp \"^INSERT INTO \`user\` VALUES \('(\w|\-|\.)*','(" + db_ignore_users + ")',\""
 				"" + (" > \"" + db_dirpath + "/mysql.sql\"" if to_file else ""))
+		return rcmd
 	
 	def __mysql_flush_logs(self):
-		return("echo \"FLUSH LOGS;\" | mysql " + self.__params_mysql)
+		return "echo \"FLUSH LOGS;\" | mysql {pwd_db} " + self.__params_mysql
 	
 	def __mysql_purge_logs(self):
 		if self.__db_binlog_rm_hours.isdigit() and int(self.__db_binlog_rm_hours) > 0:
-			return("echo \"PURGE BINARY LOGS BEFORE '" + (datetime.now() - timedelta(hours=int(self.__db_binlog_rm_hours))).isoformat() + "';\" | mysql " + self.__params_mysql)
+			return "echo \"PURGE BINARY LOGS BEFORE '" + (datetime.now() - timedelta(hours=int(self.__db_binlog_rm_hours))).isoformat() + "';\" | mysql {pwd_db} " + self.__params_mysql
 		else:
-			return("")
+			return ""
 	
 	def __mysqldump_full(self, db, db_dirpath, to_file):
-		return("{ echo \"SET SESSION UNIQUE_CHECKS = 0;\\nSET SESSION FOREIGN_KEY_CHECKS = 0;\\n\\n\"; "
-				"mysqldump " + self.__params_mysqldump + " --databases " + db + "; }"
+		rcmd = ("{ echo \"SET SESSION UNIQUE_CHECKS = 0;\\nSET SESSION FOREIGN_KEY_CHECKS = 0;\\n\\n\"; "
+				"mysqldump {pwd_db} " + self.__params_mysqldump + " --databases " + db + "; }"
 				"" + (" > \"" + db_dirpath + "/" + db + ".sql.diff\"" if to_file else ""))
+		return rcmd
 	
 	def __mysqldump_diff(self, db, db_dirpath, db_dirpath_full, to_file):
 		if not os.path.isfile(db_dirpath_full + "/" + db + ".sql"):
-			return
-		return("mysqldump " + self.__params_mysqldump + " --databases " + db + ""
+			return ""
+		rcmd = ("mysqldump {pwd_db} " + self.__params_mysqldump + " --databases " + db + ""
 				" | diff \"" + db_dirpath_full + "/" + db + ".sql\" -"
 				"" + (" > \"" + db_dirpath + "/" + db + ".sql.diff\"" if to_file else ""))
+		return rcmd
 	
 	def __mysql_backup_binlog(self, db_binlog_dirpath, backup_dirpath, backup_filename):
 		filepath_7z = backup_dirpath + "/" + backup_filename
-		return("\nlogs=`echo \"SHOW BINARY LOGS;\" | mysql " + self.__params_mysql + " | tail -n1 | awk '{print $1}'`\n"
+		rcmd = ("logs=`echo \"SHOW BINARY LOGS;\" | mysql {pwd_db} " + self.__params_mysql + " | tail -n1 | awk '{print $1}'`\n"
 				"" + self.__mysql_flush_logs() + "\n"
 				"for log in $logs; do\n"
 				"    if [ -f \"" + filepath_7z + "\" ]; then rm \"" + filepath_7z + "\"; fi\n"
-				"    7z a " + self.__params_7z + " -w\"" + self.__backup_dirpath_tmp + "\""
+				"    7z a {pwd_7z} " + self.__params_7z + " -w\"" + self.__backup_dirpath_tmp + "\""
 				" \"" + filepath_7z + "\" \"" + db_binlog_dirpath + "/$log\""
 				" > /dev/null\n"
 				"done" + "\n")
+		return rcmd
 	
 	def __mysqloptimize(self):
-		return("mysqloptimize " + self.__params_mysqloptimize + " --all-databases"
+		rcmd = ("mysqloptimize {pwd_db} " + self.__params_mysqloptimize + " --all-databases"
 				" > \"" + self.__backup_dirpath + "/mysqloptimize.log\"")
+		return rcmd
 	
-	def __7z_add(self, source_dirpath, source_name, extra_params, backup_dirpath, backup_filename):
-    		if not os.path.isdir(backup_dirpath):
+	def __7z_create(self, source_dirpath, source_name, extra_params, backup_dirpath, backup_filename):
+		if not os.path.isdir(backup_dirpath):
 			os.makedirs(backup_dirpath, mode=755)
 		filepath_7z = backup_dirpath + "/" + backup_filename
-		return("if [ -f \"" + filepath_7z + "\" ]; then rm \"" + filepath_7z + "\"; fi\n"
-				"7z a " + self.__params_7z + " -w\"" + self.__backup_dirpath_tmp + "\""
+		rcmd = ("if [ -f \"" + filepath_7z + "\" ]; then rm \"" + filepath_7z + "\"; fi\n"
+				"7z a {pwd_7z} " + self.__params_7z + " -w\"" + self.__backup_dirpath_tmp + "\""
 				"" + (extra_params if extra_params != None else "") + ""
 				" \"" + filepath_7z + "\" \"" + source_dirpath + "/" + source_name + "\""
 				" > /dev/null")
+		return rcmd
 	
-	def __7z_add_std(self, source_name, backup_dirpath, backup_filename):
+	def __7z_append(self, source_name, backup_dirpath, backup_filename):
 		filepath_7z = backup_dirpath + "/" + backup_filename
-		return(" | 7z a " + self.__params_7z + " -si" + source_name + ""
+		rcmd = (" | 7z a {pwd_7z} " + self.__params_7z + " -si" + source_name + ""
 				" \"" + filepath_7z + "\""
 				" > /dev/null")
+		return rcmd
 
 	def __7z_update(self, source_dirpath, source_name, extra_params, backup_dirpath, backup_filename, user_filepath_full):
 		if not os.path.isfile(user_filepath_full):
-			return("# Missing file for 7z update: " + user_filepath_full)
+			return "# Missing file for 7z update: " + user_filepath_full
 		filepath_7z = backup_dirpath + "/" + backup_filename
 		# http://a32.me/2010/08/7zip-differential-backup-linux-windows/
-		return("if [ -f \"" + filepath_7z + "\" ]; then rm \"" + filepath_7z + "\"; fi\n"
-				"7z u " + self.__params_7z + " -w\"" + self.__backup_dirpath_tmp + "\""
+		rcmd = ("if [ -f \"" + filepath_7z + "\" ]; then rm \"" + filepath_7z + "\"; fi\n"
+				"7z u {pwd_7z} " + self.__params_7z + " -w\"" + self.__backup_dirpath_tmp + "\""
 				"" + (extra_params if extra_params != None else "") + ""
 				" \"" + user_filepath_full + "\" \"" + source_dirpath + "/" + source_name + "\""
 				" -u- -up0q3r2x2y2z0w2\!\"" + filepath_7z + "\""
 				" > /dev/null")
+		return rcmd
 
 
 # Execute backup for specific time
@@ -468,7 +474,7 @@ def execute_at_runtime(script_runtime, debug_mode):
 	lists = Lists(config.db_root_dirpath, config.db_default_user, config.db_ignore,
 			config.user_root_dirpath, config.user_ignore, config.user_path_ignore)
 	# Prepare database and user dirs commands for archiving
-	cmds = BackupCommands(script_runtime, config.script_dirpath, debug_mode, config.backup_dirpath, config.backup_dirpath_tmp, info.backup_time,
+	cmds = BackupCommands(debug_mode, script_runtime, config.script_dirpath, config.backup_dirpath, config.backup_dirpath_tmp, info.backup_time,
 			config.db_temp_dirpath_full, config.db_temp_dirpath_diff, config.db_binlog_dirpath, config.db_binlog_rm_hours,
 			config.user_root_dirpath, config.password_db, config.password_7z)
 	db_cmds = cmds.db_cmds(info.backup_db_type, info.backup_db_time,
@@ -515,5 +521,3 @@ if __name__ == "__main__":
 # TODO:
 #	Generate a file with chmod and chown commands (7z doesn't store this info)
 #	Generate a file with restore commands (mysql imports, 7z extracts)
-#	Join methods for some mysqldump/7z commands
-#	Remove passwords from 7z calls: "7z a -p* ".
