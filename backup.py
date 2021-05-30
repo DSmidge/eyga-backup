@@ -24,7 +24,7 @@ class Config(object):
 			self.script_dirpath = script_dirpath
 		# Set configuration attributes
 		self.__settings("settings.cfg")
-		self.__passwords("passwords.cfg")
+		self.__authentications("authentications.cfg")
 	
 	# Get the path of the configuration file
 	def __get_config_filepath(self, config_filename):
@@ -59,14 +59,14 @@ class Config(object):
 		self.full_backup_weeks    = config.getint(config_section, "full_backup_weeks")
 		self.gd_upload_enable     = config.getint(config_section, "gd_upload_enable")
 	
-	# Read passwords form config file
-	def __passwords(self, config_filename):
+	# Read authentications form config file
+	def __authentications(self, config_filename):
 		config_filepath = self.__get_config_filepath(config_filename)
 		config = configparser.RawConfigParser()
 		config.read(config_filepath)
-		config_section   = "passwords"
-		self.password_db = config.get(config_section, "password_db")
-		self.password_7z = config.get(config_section, "password_7z")
+		config_section   = "authentications"
+		self.authentication_db = config.get(config_section, "authentication_db")
+		self.authentication_7z = config.get(config_section, "authentication_7z")
 
 
 # Define period start times and backup types
@@ -261,7 +261,7 @@ class BackupCommands(object):
 	
 	def __init__(self, debug_mode, script_runtime, script_dirpath, backup_dirpath, backup_dirpath_tmp, backup_time,
 				db_temp_dirpath_full, db_temp_dirpath_diff, db_binlog_dirpath, db_binlog_rm_hours,
-				user_root_dirpath, password_db, password_7z):
+				user_root_dirpath, authentication_db, authentication_7z):
 		self.__debug_mode           = debug_mode
 		self.__script_runtime       = script_runtime
 		self.__script_dirpath       = script_dirpath
@@ -277,8 +277,8 @@ class BackupCommands(object):
 		self.__params_mysqldump     = "--skip-extended-insert --single-transaction --routines --triggers --events --no-tablespaces"
 		self.__params_mysqloptimize = "--silent"
 		self.__params_7z            = "-bd -mhe=on -mx5 -mf=off -ms=e -mmt=off"
-		self.__password_db          = password_db
-		self.__password_7z          = password_7z
+		self.__authentication_db    = authentication_db
+		self.__authentication_7z    = authentication_7z
 	
 	# Prepare commands for backup of databases
 	def db_cmds(self, backup_db_type, backup_db_time, db_list_by_users, db_default_user, db_ignore_users, db_optimize):
@@ -374,7 +374,7 @@ class BackupCommands(object):
 			with open(backup_dirpath + "/backup.log", "a") as log:
 				log.write("\n" + self.__script_runtime.replace(microsecond=0).isoformat(' '))
 			start = datetime.now()
-			subprocess.call(cmd.replace("{pwd_db}", self.__password_db).replace("{pwd_7z}", self.__password_7z), shell=True)
+			subprocess.call(cmd.replace("{pwd_db}", self.__authentication_db).replace("{pwd_7z}", self.__authentication_7z), shell=True)
 			stop = datetime.now()
 			with open(backup_dirpath + "/backup.log", "a") as log:
 				log.write(", " + backup_x + " = " + str(round((stop - start).total_seconds(), 1)) + "s")
@@ -476,7 +476,7 @@ def execute_at_runtime(script_runtime, debug_mode):
 	# Prepare database and user dirs commands for archiving
 	cmds = BackupCommands(debug_mode, script_runtime, config.script_dirpath, config.backup_dirpath, config.backup_dirpath_tmp, info.backup_time,
 			config.db_temp_dirpath_full, config.db_temp_dirpath_diff, config.db_binlog_dirpath, config.db_binlog_rm_hours,
-			config.user_root_dirpath, config.password_db, config.password_7z)
+			config.user_root_dirpath, config.authentication_db, config.authentication_7z)
 	db_cmds = cmds.db_cmds(info.backup_db_type, info.backup_db_time,
 			lists.db_list_by_users, config.db_default_user, config.db_ignore_users, info.db_optimize)
 	(db_cmds_core, db_cmds_gd) = (None, None)
