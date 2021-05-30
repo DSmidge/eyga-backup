@@ -162,7 +162,7 @@ class Lists(object):
 		db_list = os.listdir(db_root_dirpath)
 		# Add files to ignored list
 		for db in db_list:
-			if os.path.isfile(db_root_dirpath + "/" + db):
+			if db[0] == "#" or os.path.isfile(db_root_dirpath + "/" + db):
 				db_ignore.append(db)
 		# Remove ignored
 		for db in db_ignore:
@@ -418,6 +418,7 @@ class BackupCommands(object):
 		return("\nlogs=`echo \"SHOW BINARY LOGS;\" | mysql " + self.__params_mysql + " | tail -n1 | awk '{print $1}'`\n"
 				"" + self.__mysql_flush_logs() + "\n"
 				"for log in $logs; do\n"
+				"    if [ -f \"" + filepath_7z + "\" ]; then rm \"" + filepath_7z + "\"; fi\n"
 				"    7z a " + self.__params_7z + " -w\"" + self.__backup_dirpath_tmp + "\""
 				" \"" + filepath_7z + "\" \"" + db_binlog_dirpath + "/$log\""
 				" > /dev/null\n"
@@ -489,25 +490,26 @@ def execute_at_runtime(script_runtime, debug_mode):
 
 
 # Main
-if len(sys.argv) == 1:
-	execute_at_runtime(datetime.now(), False)
-else:
-	# Debug
-	print("# List of backup.py commands")
-	script_runtime = datetime(2015, 1, 3, 4)
-	print("\n\n# db = full, user = full, " + script_runtime.isoformat(' '))
-	execute_at_runtime(script_runtime, True)
-	script_runtime = datetime(2015, 1, 4, 4)
-	print("\n\n# db = full, user = diff, " + script_runtime.isoformat(' '))
-	execute_at_runtime(script_runtime, True)
-	script_runtime = datetime(2015, 1, 4, 5)
-	print("\n\n# db = diff, user = none, " + script_runtime.isoformat(' '))
-	execute_at_runtime(script_runtime, True)
-	# Test shifting time
-	config = Config()
-	info = BackupInfo(script_runtime, config.split_day_by_hour, config.split_week_by_day,
-			config.full_backup_weeks)
-	info.test_shifting_time(config.split_day_by_hour, config.split_week_by_day, config.full_backup_weeks)
+if __name__ == "__main__":
+	if len(sys.argv) == 1:
+		execute_at_runtime(datetime.now(), False)
+	else:
+		# Debug
+		print("# List of backup.py commands")
+		script_runtime = datetime(2015, 1, 3, 4)
+		print("\n\n# db = full, user = full, " + script_runtime.isoformat(' '))
+		execute_at_runtime(script_runtime, True)
+		script_runtime = datetime(2015, 1, 4, 4)
+		print("\n\n# db = full, user = diff, " + script_runtime.isoformat(' '))
+		execute_at_runtime(script_runtime, True)
+		script_runtime = datetime(2015, 1, 4, 5)
+		print("\n\n# db = diff, user = none, " + script_runtime.isoformat(' '))
+		execute_at_runtime(script_runtime, True)
+		# Test shifting time
+		config = Config()
+		info = BackupInfo(script_runtime, config.split_day_by_hour, config.split_week_by_day,
+				config.full_backup_weeks)
+		info.test_shifting_time(config.split_day_by_hour, config.split_week_by_day, config.full_backup_weeks)
 
 
 # TODO:
