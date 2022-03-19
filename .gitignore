@@ -3,3 +3,4 @@ google_credentials.cfg
 google_credentials.json
 authentications*.cfg
 settings*.cfg
+test.bat
