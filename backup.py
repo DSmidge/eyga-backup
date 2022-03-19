@@ -28,12 +28,14 @@ class EygaBackup(object):
 		lists = self.Lists(config.db_root_dirpath, config.db_default_user, config.db_ignore,
 				config.user_root_dirpath, config.user_ignore, config.user_path_ignore)
 		# Prepare variables
-		self.__script_runtime = script_runtime
-		self.__backup_dirpath = config.backup_dirpath
-		self.__backup_verbose = config.backup_verbose
-		self.__gd_upload_enable = config.gd_upload_enable
+		self.__script_runtime    = script_runtime
+		self.__backup_dirpath    = config.backup_dirpath
+		self.__backup_verbose    = config.backup_verbose
+		self.__gd_upload_enable  = config.gd_upload_enable
 		self.__authentication_db = config.authentication_db
 		self.__authentication_7z = config.authentication_7z
+		self.__extcmd_nice       = "nice -n {nice} ".format(nice=config.extcmd_nice) if config.extcmd_nice != "" else ""
+
 		# For tests
 		self.__config = config
 		self.__info = info
@@ -79,7 +81,7 @@ class EygaBackup(object):
 		cmds = filter(None, cmds)
 		if len(cmds) == 0:
 			return
-		cmd = "\n".join(cmds)
+		cmd = "\n".join(cmds).replace("{nice}", self.__extcmd_nice)
 		if not debug_mode:
 			with open(self.__backup_dirpath + "/backup.log", "a") as log:
 				log.write("\n" + self.__script_runtime.replace(microsecond=0).isoformat(' '))
@@ -139,6 +141,7 @@ class EygaBackup(object):
 			self.user_path_ignore     = config.get(config_section, "user_path_ignore")
 			self.sevenzip_mx          = config.get(config_section, "sevenzip_mx")
 			self.sevenzip_mmt         = config.get(config_section, "sevenzip_mmt")
+			self.extcmd_nice          = config.get(config_section, "extcmd_nice")
 			self.split_week_by_day    = config.getint(config_section, "split_week_by_day")
 			self.split_day_by_hour    = config.getint(config_section, "split_day_by_hour")
 			self.full_backup_weeks    = config.getint(config_section, "full_backup_weeks")
@@ -459,14 +462,14 @@ class EygaBackup(object):
 		
 		def __mysqldump_full(self, db, db_dirpath, to_file):
 			rcmd = ("{ echo \"SET SESSION UNIQUE_CHECKS = 0;\\nSET SESSION FOREIGN_KEY_CHECKS = 0;\\n\\n\"; "
-					"mysqldump {pwd_db} " + self.__params_mysqldump + " --databases " + db + "; }"
+					"{nice}mysqldump {pwd_db} " + self.__params_mysqldump + " --databases " + db + "; }"
 					"" + (" > \"" + db_dirpath + "/" + db + ".sql.diff\"" if to_file else ""))
 			return rcmd
 		
 		def __mysqldump_diff(self, db, db_dirpath, db_dirpath_full, to_file):
 			if not os.path.isfile(db_dirpath_full + "/" + db + ".sql"):
 				return ""
-			rcmd = ("mysqldump {pwd_db} " + self.__params_mysqldump + " --databases " + db + ""
+			rcmd = ("{nice}mysqldump {pwd_db} " + self.__params_mysqldump + " --databases " + db + ""
 					" | diff \"" + db_dirpath_full + "/" + db + ".sql\" -"
 					"" + (" > \"" + db_dirpath + "/" + db + ".sql.diff\"" if to_file else ""))
 			return rcmd
@@ -477,14 +480,14 @@ class EygaBackup(object):
 					"" + self.__mysql_flush_logs() + "\n"
 					"for log in $logs; do\n"
 					"    if [ -f \"" + filepath_7z + "\" ]; then rm \"" + filepath_7z + "\"; fi\n"
-					"    7z a {pwd_7z} " + self.__params_7z + " -w\"" + self.__backup_dirpath_tmp + "\""
+					"    {nice}7z a {pwd_7z} " + self.__params_7z + " -w\"" + self.__backup_dirpath_tmp + "\""
 					" \"" + filepath_7z + "\" \"" + db_binlog_dirpath + "/$log\""
 					" > /dev/null\n"
 					"done" + "\n")
 			return rcmd
 		
 		def __mysqloptimize(self):
-			rcmd = ("mysqloptimize {pwd_db} " + self.__params_mysqloptimize + " --all-databases"
+			rcmd = ("{nice}mysqloptimize {pwd_db} " + self.__params_mysqloptimize + " --all-databases"
 					" > \"" + self.__backup_dirpath + "/mysqloptimize.log\"")
 			return rcmd
 		
@@ -493,7 +496,7 @@ class EygaBackup(object):
 				os.makedirs(backup_dirpath, mode=755)
 			filepath_7z = backup_dirpath + "/" + backup_filename
 			rcmd = ("if [ -f \"" + filepath_7z + "\" ]; then rm \"" + filepath_7z + "\"; fi\n"
-					"7z a {pwd_7z} " + self.__params_7z + " -w\"" + self.__backup_dirpath_tmp + "\""
+					"{nice}7z a {pwd_7z} " + self.__params_7z + " -w\"" + self.__backup_dirpath_tmp + "\""
 					"" + (extra_params if extra_params != None else "") + ""
 					" \"" + filepath_7z + "\" \"" + source_dirpath + "/" + source_name + "\""
 					" > /dev/null")
@@ -501,7 +504,7 @@ class EygaBackup(object):
 		
 		def __7z_append(self, source_name, backup_dirpath, backup_filename):
 			filepath_7z = backup_dirpath + "/" + backup_filename
-			rcmd = (" | 7z a {pwd_7z} " + self.__params_7z + " -si" + source_name + ""
+			rcmd = (" | {nice}7z a {pwd_7z} " + self.__params_7z + " -si" + source_name + ""
 					" \"" + filepath_7z + "\""
 					" > /dev/null")
 			return rcmd
@@ -512,7 +515,7 @@ class EygaBackup(object):
 			filepath_7z = backup_dirpath + "/" + backup_filename
 			# http://a32.me/2010/08/7zip-differential-backup-linux-windows/
 			rcmd = ("if [ -f \"" + filepath_7z + "\" ]; then rm \"" + filepath_7z + "\"; fi\n"
-					"7z u {pwd_7z} " + self.__params_7z + " -w\"" + self.__backup_dirpath_tmp + "\""
+					"{nice}7z u {pwd_7z} " + self.__params_7z + " -w\"" + self.__backup_dirpath_tmp + "\""
 					"" + (extra_params if extra_params != None else "") + ""
 					" \"" + user_filepath_full + "\" \"" + source_dirpath + "/" + source_name + "\""
 					" -u- -up0q3r2x2y2z0w2\!\"" + filepath_7z + "\""
