@@ -1,10 +1,10 @@
 #!/usr/bin/python
 # Copyright Eyga.net
-# For python 2.7
+# For python 2.7, 3.x
 
 # Import modules
-import ConfigParser as configparser # Python 2
-#import configparser # Python 3
+#import ConfigParser as configparser # Python 2
+import configparser # Python 3
 import os
 import subprocess
 import sys
@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 
 # Main class
 class EygaBackup(object):
+	# pylint: disable=anomalous-backslash-in-string
 
 	# Execute backup for specific time
 	def __init__(self, script_runtime = datetime.now):
@@ -29,16 +30,15 @@ class EygaBackup(object):
 		self.__backup_dirpath = config.backup_dirpath
 		self.__backup_verbose = config.backup_verbose
 		self.__gd_upload_enable = config.gd_upload_enable
-		
 		self.__authentication_db = config.authentication_db
 		self.__authentication_7z = config.authentication_7z
-
+		# For tests
 		self.__config = config
 		self.__info = info
 		# Prepare database and user dirs commands for archiving
 		cmds = self.BackupCommands(config.script_dirpath, config.backup_dirpath, config.backup_dirpath_tmp, info.backup_time,
 				config.db_temp_dirpath_full, config.db_temp_dirpath_diff, config.db_binlog_dirpath, config.db_binlog_rm_hours,
-				config.user_root_dirpath, config.sevenzip_mx, config.sevenzip_mmt, config.authentication_db, config.authentication_7z)
+				config.user_root_dirpath, config.sevenzip_mx, config.sevenzip_mmt)
 		db_cmds = cmds.db_cmds(info.backup_db_type, info.backup_db_time,
 				lists.db_list_by_users, config.db_default_user, config.db_ignore_users, info.db_optimize)
 		(self.__db_cmds_core, self.__db_cmds_gd) = (None, None)
@@ -214,8 +214,6 @@ class EygaBackup(object):
 			year = 2015
 			month = 1
 			for day in range(2, 12):
-			#	for hour in range(split_week_by_day - 2, split_week_by_day + 1):
-			#for day in range(2, 5):
 				for hour in range(0, 23):
 					script_runtime = datetime(year, month, day, hour)
 					self.__set_shifted_time(script_runtime, split_day_by_hour, split_week_by_day, full_backup_weeks)
@@ -276,7 +274,7 @@ class EygaBackup(object):
 				user, path_ignore = user_and_path_ignore.split(":", 1)
 				user_path_ignore_list[user] = " -x\!\"" + user + "/" + ("\" -x\!\"" + user + "/").join(path_ignore.split("|")) + "\""
 			return user_path_ignore_list
-
+		
 		# Databases list by users
 		@staticmethod
 		def __db_list_by_users(db_list, db_default_user, user_list):
@@ -299,12 +297,11 @@ class EygaBackup(object):
 		# Set paths for backup
 		class Path(object):
 			
-			def __init__(self, backup_dirpath, backup_time, db_temp_dirpath_full, db_temp_dirpath_diff, user_root_dirpath):
+			def __init__(self, backup_dirpath, backup_time, db_temp_dirpath_full, db_temp_dirpath_diff):
 				self.__backup_dirpath       = backup_dirpath
 				self.__backup_time          = backup_time
 				self.__db_temp_dirpath_full = db_temp_dirpath_full
 				self.__db_temp_dirpath_diff = db_temp_dirpath_diff
-				self.__user_root_dirpath    = user_root_dirpath
 			
 			# Set needed paths
 			def set(self, user, backup_x, backup_x_type, backup_x_time):
@@ -344,7 +341,7 @@ class EygaBackup(object):
 		
 		def __init__(self, script_dirpath, backup_dirpath, backup_dirpath_tmp, backup_time,
 					db_temp_dirpath_full, db_temp_dirpath_diff, db_binlog_dirpath, db_binlog_rm_hours,
-					user_root_dirpath, sevenzip_mx, sevenzip_mmt, authentication_db, authentication_7z):
+					user_root_dirpath, sevenzip_mx, sevenzip_mmt):
 			self.__script_dirpath       = script_dirpath
 			self.__backup_dirpath       = backup_dirpath
 			self.__backup_dirpath_tmp   = backup_dirpath_tmp
@@ -358,8 +355,6 @@ class EygaBackup(object):
 			self.__params_mysqldump     = "--skip-extended-insert --single-transaction --routines --triggers --events --no-tablespaces"
 			self.__params_mysqloptimize = "--silent"
 			self.__params_7z            = "-bd -mhe=on -mf=off -mx={mx} -mmt={mmt}".format(mx=sevenzip_mx, mmt=sevenzip_mmt)
-			self.__authentication_db    = authentication_db
-			self.__authentication_7z    = authentication_7z
 		
 		# Prepare commands for backup of databases
 		def db_cmds(self, backup_db_type, backup_db_time, db_list_by_users, db_default_user, db_ignore_users, db_optimize):
@@ -367,7 +362,7 @@ class EygaBackup(object):
 				return
 			# Separate backup for every user
 			db_all_cmds = []
-			path = self.Path(self.__backup_dirpath, self.__backup_time, self.__db_temp_dirpath_full, self.__db_temp_dirpath_diff, self.__user_root_dirpath)
+			path = self.Path(self.__backup_dirpath, self.__backup_time, self.__db_temp_dirpath_full, self.__db_temp_dirpath_diff)
 			for user in db_list_by_users:
 				db_cmds = []
 				db_cmds_7z = []
@@ -426,7 +421,7 @@ class EygaBackup(object):
 			if backup_user_type is None:
 				return
 			# Separate backup for every user
-			path = self.Path(self.__backup_dirpath, self.__backup_time, self.__db_temp_dirpath_full, self.__db_temp_dirpath_diff, self.__user_root_dirpath)
+			path = self.Path(self.__backup_dirpath, self.__backup_time, self.__db_temp_dirpath_full, self.__db_temp_dirpath_diff)
 			for user in user_list:
 				path.set(user, "user", backup_user_type, backup_user_time)
 				user_path_ignore = user_path_ignore_list.get(user)
@@ -508,7 +503,7 @@ class EygaBackup(object):
 					" \"" + filepath_7z + "\""
 					" > /dev/null")
 			return rcmd
-
+		
 		def __7z_update(self, source_dirpath, source_name, extra_params, backup_dirpath, backup_filename, user_filepath_full):
 			if not os.path.isfile(user_filepath_full):
 				return "# Missing file for 7z update: " + user_filepath_full
