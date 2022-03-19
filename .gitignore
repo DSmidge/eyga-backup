@@ -1,5 +1,5 @@
 .vscode
 google_credentials.cfg
 google_credentials.json
-passwords.cfg
-settings.cfg
+authentications*.cfg
+settings*.cfg
