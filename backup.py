@@ -3,8 +3,10 @@
 # For python 2.7, 3.x
 
 # Import modules
-#import ConfigParser as configparser # Python 2
-import configparser # Python 3
+try:
+    import configparser # Python 3
+except ImportError:
+    import ConfigParser as configparser # Python 2
 import os
 import subprocess
 import sys
@@ -16,7 +18,7 @@ class EygaBackup(object):
 	# pylint: disable=anomalous-backslash-in-string
 
 	# Execute backup for specific time
-	def __init__(self, script_runtime = datetime.now):
+	def __init__(self, script_runtime):
 		# Config data
 		config = self.Config()
 		# Type of backup and backup file name
@@ -521,7 +523,7 @@ class EygaBackup(object):
 # Main
 if __name__ == "__main__":
 	if len(sys.argv) == 1:
-		EygaBackup().execute()
+		EygaBackup(datetime.now()).execute()
 	else:
 		# Debug
 		print("# List of backup.py commands")
