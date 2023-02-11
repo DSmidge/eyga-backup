@@ -357,7 +357,7 @@ class EygaBackup(object):
 			self.__db_binlog_rm_hours   = db_binlog_rm_hours
 			self.__user_root_dirpath    = user_root_dirpath
 			self.__params_mysql         = ""
-			self.__params_mysqldump     = "--skip-extended-insert --single-transaction --routines --triggers --events --no-tablespaces"
+			self.__params_mysqldump     = "--skip-extended-insert --single-transaction --routines --triggers --events --no-tablespaces --mysqld-long-query-time=300"
 			self.__params_mysqloptimize = "--silent"
 			self.__params_7z            = "-bd -mhe=on -mf=off -mx={mx} -mmt={mmt}".format(mx=sevenzip_mx, mmt=sevenzip_mmt)
 		
@@ -389,16 +389,16 @@ class EygaBackup(object):
 							"" + self.__7z_append("mysql.sql", path.backup_dirpath, path.backup_filename))
 				for db in db_list_by_users[user]:
 					# Full backup with binary logs
-					if backup_db_type == "full" and self.__db_binlog_dirpath != "":
+					if self.__db_binlog_dirpath != "" and backup_db_type == "full":
 						export = True
 						db_cmds_7z.append(self.__mysqldump_full(db, path.db_dirpath, False) + ""
 								"" + self.__7z_append(db + ".sql", path.backup_dirpath, path.backup_filename))
-					# Full backup
-					if backup_db_type == "full" and self.__db_binlog_dirpath == "":
+					# Full backup OR force full backup on diff
+					if self.__db_binlog_dirpath == "" and (backup_db_type == "full" or (backup_db_type == "diff" and not os.path.isfile(path.db_dirpath_full + "/" + db + ".sql"))):
 						export = True
-						db_cmds.append(self.__mysqldump_full(db, path.db_dirpath, True))
+						db_cmds.append(self.__mysqldump_full(db, path.db_dirpath_full, True))
 					# Diff backup
-					if backup_db_type == "diff" and self.__db_binlog_dirpath == "":
+					if self.__db_binlog_dirpath == "" and backup_db_type == "diff":
 						export = True
 						db_cmds_7z.append(self.__mysqldump_diff(db, path.db_dirpath, path.db_dirpath_full, False) + ""
 								"" + self.__7z_append(db + ".sql.diff", path.backup_dirpath, path.backup_filename))
@@ -463,12 +463,10 @@ class EygaBackup(object):
 		def __mysqldump_full(self, db, db_dirpath, to_file):
 			rcmd = ("{ echo \"SET SESSION UNIQUE_CHECKS = 0;\\nSET SESSION FOREIGN_KEY_CHECKS = 0;\\n\\n\"; "
 					"{nice}mysqldump {pwd_db} " + self.__params_mysqldump + " --databases " + db + "; }"
-					"" + (" > \"" + db_dirpath + "/" + db + ".sql.diff\"" if to_file else ""))
+					"" + (" > \"" + db_dirpath + "/" + db + ".sql\"" if to_file else ""))
 			return rcmd
 		
 		def __mysqldump_diff(self, db, db_dirpath, db_dirpath_full, to_file):
-			if not os.path.isfile(db_dirpath_full + "/" + db + ".sql"):
-				return ""
 			rcmd = ("{nice}mysqldump {pwd_db} " + self.__params_mysqldump + " --databases " + db + ""
 					" | diff \"" + db_dirpath_full + "/" + db + ".sql\" -"
 					"" + (" > \"" + db_dirpath + "/" + db + ".sql.diff\"" if to_file else ""))
@@ -546,3 +544,4 @@ if __name__ == "__main__":
 # TODO:
 #	Generate a file with chmod and chown commands (7z doesn't store this info)
 #	Generate a file with restore commands (mysql imports, 7z extracts)
+#	Disable (lock file) diffs when full backup is in progress
