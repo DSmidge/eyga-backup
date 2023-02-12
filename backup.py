@@ -396,7 +396,7 @@ class EygaBackup(object):
 					# Full backup OR force full backup on diff
 					if self.__db_binlog_dirpath == "" and (backup_db_type == "full" or (backup_db_type == "diff" and not os.path.isfile(path.db_dirpath_full + "/" + db + ".sql"))):
 						export = True
-						db_cmds.append(self.__mysqldump_full(db, path.db_dirpath_full, True))
+						db_cmds.append(self.__mysqldump_full(db, path.db_dirpath, True))
 					# Diff backup
 					if self.__db_binlog_dirpath == "" and backup_db_type == "diff":
 						export = True
