@@ -4,9 +4,11 @@
 
 # Import modules
 try:
-    import configparser # Python 3
+	# Python 3
+	import configparser
 except ImportError:
-    import ConfigParser as configparser # Python 2
+	# Python 2
+	import ConfigParser as configparser # type: ignore
 import os
 import subprocess
 import sys
@@ -22,34 +24,23 @@ class EygaBackup(object):
 		# Config data
 		config = self.Config()
 		# Type of backup and backup file name
-		info = self.BackupInfo(script_runtime, config.split_day_by_hour, config.split_week_by_day,
-				config.full_backup_weeks)
+		info = self.BackupInfo(script_runtime, config)
 		# List of databases and user dirs to backup
-		lists = self.Lists(config.db_root_dirpath, config.db_default_user, config.db_ignore,
-				config.user_root_dirpath, config.user_ignore, config.user_path_ignore)
+		lists = self.Lists(config)
 		# Prepare variables
-		self.__script_runtime    = script_runtime
-		self.__backup_dirpath    = config.backup_dirpath
-		self.__backup_verbose    = config.backup_verbose
-		self.__gd_upload_enable  = config.gd_upload_enable
-		self.__authentication_db = config.authentication_db
-		self.__authentication_7z = config.authentication_7z
-		self.__extcmd_nice       = "nice -n {nice} ".format(nice=config.extcmd_nice) if config.extcmd_nice != "" else ""
+		self.__script_runtime = script_runtime
+		self.__config         = config
+		self.__info           = info
+		self.__lists          = lists
+		self.__extcmd_nice    = "nice -n {nice} ".format(nice=config.extcmd_nice) if config.extcmd_nice != "" else ""
 
-		# For tests
-		self.__config = config
-		self.__info = info
 		# Prepare database and user dirs commands for archiving
-		cmds = self.BackupCommands(config.script_dirpath, config.backup_dirpath, config.backup_dirpath_tmp, info.backup_time,
-				config.db_temp_dirpath_full, config.db_temp_dirpath_diff, config.db_binlog_dirpath, config.db_binlog_rm_hours,
-				config.user_root_dirpath, config.sevenzip_mx, config.sevenzip_mmt)
-		db_cmds = cmds.db_cmds(info.backup_db_type, info.backup_db_time,
-				lists.db_list_by_users, config.db_default_user, config.db_ignore_users, info.db_optimize)
+		cmds = self.BackupCommands(config, info, lists)
+		db_cmds = cmds.db_cmds()
 		(self.__db_cmds_core, self.__db_cmds_gd) = (None, None)
 		if db_cmds is not None:
 			(self.__db_cmds_core, self.__db_cmds_gd) = db_cmds
-		user_cmds = cmds.user_cmds(info.backup_user_type, info.backup_user_time,
-				lists.user_list, lists.user_path_ignore_list)
+		user_cmds = cmds.user_cmds()
 		(self.__user_cmds_core, self.__user_cmds_gd) = (None, None)
 		if user_cmds is not None:
 			(self.__user_cmds_core, self.__user_cmds_gd) = user_cmds
@@ -64,13 +55,13 @@ class EygaBackup(object):
 
 	# Test
 	def test_shifting_time(self):
-		self.__info.test_shifting_time(self.__config.split_day_by_hour, self.__config.split_week_by_day, self.__config.full_backup_weeks)
+		self.__info.test_shifting_time()
 
 	# Process all backup sections
 	def __process_all(self, debug_mode):
 		self.__process("db", self.__db_cmds_core, debug_mode)
 		self.__process("user", self.__user_cmds_core, debug_mode)
-		if self.__gd_upload_enable == "1":
+		if self.__config.gd_upload_enable == "1":
 			self.__process("db_gd", self.__db_cmds_gd, debug_mode)
 			self.__process("user_gd", self.__user_cmds_gd, debug_mode)
 
@@ -83,14 +74,14 @@ class EygaBackup(object):
 			return
 		cmd = "\n".join(cmds).replace("{nice}", self.__extcmd_nice)
 		if not debug_mode:
-			with open(self.__backup_dirpath + "/backup.log", "a") as log:
+			with open(self.__config.backup_dirpath + "/backup.log", "a") as log:
 				log.write("\n" + self.__script_runtime.replace(microsecond=0).isoformat(' '))
 			start = datetime.now()
-			subprocess.call(cmd.replace("{pwd_db}", self.__authentication_db).replace("{pwd_7z}", self.__authentication_7z), shell=True)
+			subprocess.call(cmd.replace("{pwd_db}", self.__config.authentication_db).replace("{pwd_7z}", self.__config.authentication_7z), shell=True)
 			stop = datetime.now()
-			with open(self.__backup_dirpath + "/backup.log", "a") as log:
+			with open(self.__config.backup_dirpath + "/backup.log", "a") as log:
 				log.write(", " + backup_x + " = " + str(round((stop - start).total_seconds(), 1)) + "s")
-				if self.__backup_verbose == "1":
+				if self.__config.backup_verbose == "1":
 					log.write(", commands:\n" + cmd + " #")
 		else:
 			print(cmd)
@@ -125,17 +116,20 @@ class EygaBackup(object):
 			config = configparser.RawConfigParser()
 			config.read(config_filepath)
 			config_section            = "settings"
+			# Result
 			self.backup_dirpath       = config.get(config_section, "backup_dirpath")
 			self.backup_dirpath_tmp   = config.get(config_section, "backup_dirpath_tmp")
 			self.backup_verbose       = config.get(config_section, "backup_verbose")
 			self.db_root_dirpath      = config.get(config_section, "db_root_dirpath")
 			self.db_temp_dirpath_full = config.get(config_section, "db_temp_dirpath_full")
 			self.db_temp_dirpath_diff = config.get(config_section, "db_temp_dirpath_diff")
+			self.db_backup_mode       = config.get(config_section, "db_backup_mode")
 			self.db_binlog_dirpath    = config.get(config_section, "db_binlog_dirpath")
 			self.db_binlog_rm_hours   = config.get(config_section, "db_binlog_rm_hours")
 			self.db_default_user      = config.get(config_section, "db_default_user")
 			self.db_ignore            = config.get(config_section, "db_ignore").split("|")
 			self.db_ignore_users      = config.get(config_section, "db_ignore_users")
+			self.db_optimize          = config.getboolean(config_section, "db_optimize")
 			self.user_root_dirpath    = config.get(config_section, "user_root_dirpath")
 			self.user_ignore          = config.get(config_section, "user_ignore").split("|")
 			self.user_path_ignore     = config.get(config_section, "user_path_ignore")
@@ -145,6 +139,7 @@ class EygaBackup(object):
 			self.split_week_by_day    = config.getint(config_section, "split_week_by_day")
 			self.split_day_by_hour    = config.getint(config_section, "split_day_by_hour")
 			self.full_backup_weeks    = config.getint(config_section, "full_backup_weeks")
+			self.diff_backup          = config.getboolean(config_section, "diff_backup")
 			self.gd_upload_enable     = config.getint(config_section, "gd_upload_enable")
 		
 		# Read authentications form config file
@@ -152,7 +147,8 @@ class EygaBackup(object):
 			config_filepath = self.__get_config_filepath(config_filename)
 			config = configparser.RawConfigParser()
 			config.read(config_filepath)
-			config_section   = "authentications"
+			config_section         = "authentications"
+			# Result
 			self.authentication_db = config.get(config_section, "authentication_db")
 			self.authentication_7z = config.get(config_section, "authentication_7z")
 
@@ -160,27 +156,31 @@ class EygaBackup(object):
 	# Define period start times and backup types
 	class BackupInfo(object):
 		
-		def __init__(self, script_runtime, split_day_by_hour, split_week_by_day, full_backup_weeks):
-			if split_day_by_hour > 23:
-				split_day_by_hour = 0
-			if split_week_by_day > 6:
-				split_week_by_day = 0
-			if full_backup_weeks < 2:
-				full_backup_weeks = 2
-			self.__set_shifted_time(script_runtime, split_day_by_hour, split_week_by_day, full_backup_weeks)
+		def __init__(self, script_runtime, config):
+			self.__script_runtime = script_runtime
+			self.__config = config
+			if self.__config.split_day_by_hour > 23:
+				self.__config.__split_day_by_hour = 0
+			if self.__config.split_week_by_day > 6:
+				self.__config.__split_week_by_day = 0
+			if self.__config.full_backup_weeks < 2:
+				self.__config.__full_backup_weeks = 2
+			self.__set_shifted_time()
 		
 		# Shift time to hour of full backup
-		def __set_shifted_time(self, script_runtime, split_day_by_hour, split_week_by_day, full_backup_weeks):
+		def __set_shifted_time(self, script_runtime = None):
+			if script_runtime == None:
+				script_runtime = self.__script_runtime
 			# Fix hour
-			day_hours = split_day_by_hour
+			day_hours = self.__config.split_day_by_hour
 			shifted_hour = (script_runtime - timedelta(hours=day_hours)).hour
 			# Fix weekday
-			week_hours = 24 * split_week_by_day + split_day_by_hour
+			week_hours = 24 * self.__config.split_week_by_day + self.__config.split_day_by_hour
 			shifted_weekday = (script_runtime - timedelta(hours=week_hours)).weekday()
 			# Calculate week number
 			week_start_1 = (datetime(2014, 12, 28) + timedelta(hours=day_hours)) # Corrections must be on Monday
 			week_start_2 = (script_runtime - timedelta(hours=week_hours))
-			shifted_week = int(((week_start_2 - week_start_1).days / 7) % full_backup_weeks)
+			shifted_week = int(((week_start_2 - week_start_1).days / 7) % self.__config.full_backup_weeks)
 			# Set attributes
 			self.__set_backup_info(shifted_hour, shifted_weekday, shifted_week)
 		
@@ -192,16 +192,16 @@ class EygaBackup(object):
 			# Set backup type and time attributes
 			if shifted_weekday == 0 and shifted_hour == 0:
 				# Weekly backup (for last X weeks)
-				self.__set_backup_attr(week, "full", None, "full", None, "yes")
+				self.__set_backup_attr(week, "full", None, "full", None, True)
 			elif shifted_hour == 0:
 				# Daily backup
-				self.__set_backup_attr(day, "full", None, "diff", week, "no")
+				self.__set_backup_attr(day, "full", None, "diff", week, False)
 			elif shifted_weekday == 0:
 				# Hourly backup in week delimiter day
-				self.__set_backup_attr(hour, "diff", week, None, None, "no")
+				self.__set_backup_attr(hour, "diff", week, None, None, False)
 			else:
 				# Hourly backup
-				self.__set_backup_attr(hour, "diff", day, None, None, "no")
+				self.__set_backup_attr(hour, "diff", day, None, None, False)
 		
 		# Set backup attributes
 		def __set_backup_attr(self, backup_time, backup_db_type, backup_db_time,
@@ -214,14 +214,14 @@ class EygaBackup(object):
 			self.db_optimize      = db_optimize
 		
 		# Test shifting hour, day and week calculations
-		def test_shifting_time(self, split_day_by_hour, split_week_by_day, full_backup_weeks):
+		def test_shifting_time(self):
 			print("")
 			year = 2023
 			month = 1
 			for day in range(2, 15):
 				for hour in range(0, 23):
 					script_runtime = datetime(year, month, day, hour)
-					self.__set_shifted_time(script_runtime, split_day_by_hour, split_week_by_day, full_backup_weeks)
+					self.__set_shifted_time(script_runtime)
 					print("runtume: " + script_runtime.isoformat(' ') + ""
 							", time: " + str(self.backup_time) + ""
 							", db_type: " + str(self.backup_db_type) + ""
@@ -233,11 +233,12 @@ class EygaBackup(object):
 	# Lists of databases and users
 	class Lists(object):
 		
-		def __init__(self, db_root_dirpath, db_default_user, db_ignore, user_root_dirpath, user_ignore, user_path_ignore):
-			db_list                    = self.__db_list(db_root_dirpath, db_ignore)
-			user_list                  = self.__user_list(user_root_dirpath, user_ignore)
-			user_path_ignore_list      = self.__user_path_ignore_list(user_path_ignore)
-			db_list_by_users           = self.__db_list_by_users(db_list, db_default_user, user_list)
+		def __init__(self, config):
+			db_list                    = self.__db_list(config.db_root_dirpath, config.db_ignore)
+			user_list                  = self.__user_list(config.user_root_dirpath, config.user_ignore)
+			user_path_ignore_list      = self.__user_path_ignore_list(config.user_path_ignore)
+			db_list_by_users           = self.__db_list_by_users(db_list, config.db_default_user, user_list)
+			# Result
 			self.user_list             = user_list
 			self.user_path_ignore_list = user_path_ignore_list
 			self.db_list_by_users      = db_list_by_users
@@ -302,36 +303,30 @@ class EygaBackup(object):
 		# Set paths for backup
 		class Path(object):
 			
-			def __init__(self, backup_dirpath, backup_time, db_temp_dirpath_full, db_temp_dirpath_diff):
-				self.__backup_dirpath       = backup_dirpath
-				self.__backup_time          = backup_time
-				self.__db_temp_dirpath_full = db_temp_dirpath_full
-				self.__db_temp_dirpath_diff = db_temp_dirpath_diff
+			def __init__(self, config, info):
+				self.__config = config
+				self.__info   = info
 			
 			# Set needed paths
 			def set(self, user, backup_x, backup_x_type, backup_x_time):
-				backup_dirpath       = self.__backup_dirpath
-				backup_time          = self.__backup_time
-				db_temp_dirpath_full = self.__db_temp_dirpath_full
-				db_temp_dirpath_diff = self.__db_temp_dirpath_diff
 				# Get dir and file info
 				if backup_x_type == "full":
-					db_temp_dirpath    = db_temp_dirpath_full
-					db_dirpath         = db_temp_dirpath_full + "/" + user
+					db_temp_dirpath    = self.__config.db_temp_dirpath_full
+					db_dirpath         = self.__config.db_temp_dirpath_full + "/" + user
 					db_dirpath_full    = None
 					user_filename_full = None
 					user_filepath_full = None
 				else:
-					db_temp_dirpath    = db_temp_dirpath_diff
-					db_dirpath         = db_temp_dirpath_diff + "/" + user
-					db_dirpath_full    = db_temp_dirpath_full + "/" + user
+					db_temp_dirpath    = self.__config.db_temp_dirpath_diff
+					db_dirpath         = self.__config.db_temp_dirpath_diff + "/" + user
+					db_dirpath_full    = self.__config.db_temp_dirpath_full + "/" + user
 					user_filename_full = user + "-" + backup_x + "-full-" + backup_x_time + ".7z"
-					user_filepath_full = backup_dirpath + "/" + user + "/" + user_filename_full
+					user_filepath_full = self.__config.backup_dirpath + "/" + user + "/" + user_filename_full
 				# Create a place for storing backup files
-				backup_dirpath = backup_dirpath + "/" + user
+				backup_dirpath = self.__config.backup_dirpath + "/" + user
 				if not os.path.isdir(backup_dirpath):
 					os.makedirs(backup_dirpath, mode=755)
-				backup_filename = user + "-" + backup_x + "-" + backup_x_type + "-" + backup_time + ".7z"
+				backup_filename = user + "-" + backup_x + "-" + backup_x_type + "-" + self.__info.backup_time + ".7z"
 				# Create a place for storing SQL files
 				if backup_x == "sql" and not os.path.isdir(db_dirpath):
 					os.makedirs(db_dirpath, mode=755)
@@ -344,103 +339,95 @@ class EygaBackup(object):
 				self.user_filename_full = user_filename_full
 				self.user_filepath_full = user_filepath_full
 		
-		def __init__(self, script_dirpath, backup_dirpath, backup_dirpath_tmp, backup_time,
-					db_temp_dirpath_full, db_temp_dirpath_diff, db_binlog_dirpath, db_binlog_rm_hours,
-					user_root_dirpath, sevenzip_mx, sevenzip_mmt):
-			self.__script_dirpath       = script_dirpath
-			self.__backup_dirpath       = backup_dirpath
-			self.__backup_dirpath_tmp   = backup_dirpath_tmp
-			self.__backup_time          = backup_time
-			self.__db_temp_dirpath_full = db_temp_dirpath_full
-			self.__db_temp_dirpath_diff = db_temp_dirpath_diff
-			self.__db_binlog_dirpath    = db_binlog_dirpath
-			self.__db_binlog_rm_hours   = db_binlog_rm_hours
-			self.__user_root_dirpath    = user_root_dirpath
+		def __init__(self, config, info, lists):
+			self.__config               = config
+			self.__info                 = info
+			self.__lists                = lists
 			self.__params_mysql         = ""
 			self.__params_mysqldump     = "--skip-extended-insert --single-transaction --routines --triggers --events --no-tablespaces --mysqld-long-query-time=300"
 			self.__params_mysqloptimize = "--silent --skip-database=mysql"
-			self.__params_7z            = "-bd -mhe=on -mf=off -mx={mx} -mmt={mmt}".format(mx=sevenzip_mx, mmt=sevenzip_mmt)
+			self.__params_7z            = "-bd -mhe=on -mf=off -mx={mx} -mmt={mmt}".format(mx=self.__config.sevenzip_mx, mmt=self.__config.sevenzip_mmt)
 		
 		# Prepare commands for backup of databases
-		def db_cmds(self, backup_db_type, backup_db_time, db_list_by_users, db_default_user, db_ignore_users, db_optimize):
-			if backup_db_type is None:
+		def db_cmds(self):
+			if self.__info.backup_db_type is None:
 				return
 			# Separate backup for every user
-			db_all_cmds = []
+			db_cmds = []
 			db_cmds_gd = []
-			path = self.Path(self.__backup_dirpath, self.__backup_time, self.__db_temp_dirpath_full, self.__db_temp_dirpath_diff)
-			for user in db_list_by_users:
-				db_cmds = []
-				db_cmds_7z = []
-				path.set(user, "sql", backup_db_type, backup_db_time)
+			path = self.Path(self.__config, self.__info)
+			for user in self.__lists.db_list_by_users:
+				db_cmds_user = []
+				db_cmds_user_7z = []
+				path.set(user, "sql", self.__info.backup_db_type, self.__info.backup_db_time)
 				# Export all databases from specific user to files
 				export = False
-				db_cmds.append("\nif [ \"$(ls -A " + path.db_dirpath + ")\" ]; then rm " + path.db_dirpath + "/*; fi")
-				if user == db_default_user:
-					if self.__db_binlog_dirpath != "":
+				db_cmds_user.append("\nif [ \"$(ls -A " + path.db_dirpath + ")\" ]; then rm " + path.db_dirpath + "/*; fi")
+				if user == self.__config.db_default_user:
+					if self.__config.db_backup_mode == "binlog":
 						# Backup binary logs
-						if backup_db_type == "full":
-							db_all_cmds.insert(0, self.__mysql_flush_logs())
-							db_all_cmds.insert(1, self.__mysql_purge_logs())
-						if backup_db_type == "diff":
-							db_all_cmds.append(self.__mysql_backup_binlog(self.__db_binlog_dirpath, path.backup_dirpath, path.backup_filename))
+						if self.__info.backup_db_type == "full":
+							db_cmds.insert(0, self.__mysql_flush_logs())
+							db_cmds.insert(1, self.__mysql_purge_logs())
+						if self.__info.backup_db_type == "diff":
+							db_cmds.append(self.__mysql_backup_binlog(self.__config.db_binlog_dirpath, path.backup_dirpath, path.backup_filename))
 					# Backup database permissions
-					db_all_cmds.append(self.__mysqldump_permissions(path.db_dirpath, db_ignore_users, False) + ""
+					db_cmds.append(self.__mysqldump_permissions(path.db_dirpath, self.__config.db_ignore_users, False) + ""
 							"" + self.__7z_append("mysql.sql", path.backup_dirpath, path.backup_filename))
-				for db in db_list_by_users[user]:
+				for db in self.__lists.db_list_by_users[user]:
 					# Full backup with binary logs
-					if self.__db_binlog_dirpath != "" and backup_db_type == "full":
+					if self.__config.db_backup_mode == "binlog" and self.__info.backup_db_type == "full":
 						export = True
-						db_cmds_7z.append(self.__mysqldump_full(db, path.db_dirpath, False) + ""
+						db_cmds_user_7z.append(self.__mysqldump_full(db, path.db_dirpath, False) + ""
 								"" + self.__7z_append(db + ".sql", path.backup_dirpath, path.backup_filename))
 					# Full backup OR force full backup on diff
-					if self.__db_binlog_dirpath == "" and (backup_db_type == "full" or (backup_db_type == "diff" and not os.path.isfile(path.db_dirpath_full + "/" + db + ".sql"))):
+					if self.__config.db_backup_mode == "diff" and (self.__info.backup_db_type == "full" or (self.__info.backup_db_type == "diff" and not os.path.isfile(path.db_dirpath_full + "/" + db + ".sql"))):
 						export = True
-						db_cmds.append(self.__mysqldump_full(db, path.db_dirpath, True))
+						db_cmds_user.append(self.__mysqldump_full(db, path.db_dirpath, True))
 					# Diff backup
-					if self.__db_binlog_dirpath == "" and backup_db_type == "diff":
+					if self.__config.db_backup_mode == "diff" and self.__info.backup_db_type == "diff":
 						export = True
-						db_cmds_7z.append(self.__mysqldump_diff(db, path.db_dirpath, path.db_dirpath_full, False) + ""
+						db_cmds_user_7z.append(self.__mysqldump_diff(db, path.db_dirpath, path.db_dirpath_full, False) + ""
 								"" + self.__7z_append(db + ".sql.diff", path.backup_dirpath, path.backup_filename))
 				# Compress databases
-				db_cmds.append(self.__7z_create(path.db_temp_dirpath, user, None, path.backup_dirpath, path.backup_filename))
-				if len(db_cmds_7z) > 0:
-					db_cmds.extend(db_cmds_7z)
+				db_cmds_user.append(self.__7z_create(path.db_temp_dirpath, user, None, path.backup_dirpath, path.backup_filename))
+				if len(db_cmds_user_7z) > 0:
+					db_cmds_user.extend(db_cmds_user_7z)
 				# Upload to Google Drive
 				gd_file = path.backup_dirpath + "/" + path.backup_filename
 				if os.path.isfile(gd_file):
-					db_cmds_gd.append("python \"" + self.__script_dirpath + "googledrive.py\""
-							" '" + gd_file + "' 'Diff for " + str(backup_db_time).upper() + "'")
+					db_cmds_gd.append("python \"" + self.__config.script_dirpath + "googledrive.py\""
+							" '" + gd_file + "' 'Diff for " + str(self.__info.backup_db_time).upper() + "'")
 				# Add to all commands
 				if (export == True):
-					db_all_cmds.extend(db_cmds)
+					db_cmds.extend(db_cmds_user)
 			# Database optimizations
-			if db_optimize == "yes":
-				db_all_cmds.append(self.__mysqloptimize())
-			return db_all_cmds, db_cmds_gd
+			if self.__config.db_optimize == True and self.__info.db_optimize == True:
+				db_cmds.append(self.__mysqloptimize())
+			return db_cmds, db_cmds_gd
 		
 		# Prepare commands for backup of user files
-		def user_cmds(self, backup_user_type, backup_user_time, user_list, user_path_ignore_list):
+		def user_cmds(self):
 			user_cmds = []
 			user_cmds_gd = []
-			if backup_user_type is None:
+			if self.__info.backup_user_type is None:
 				return
 			# Separate backup for every user
-			path = self.Path(self.__backup_dirpath, self.__backup_time, self.__db_temp_dirpath_full, self.__db_temp_dirpath_diff)
-			for user in user_list:
-				path.set(user, "user", backup_user_type, backup_user_time)
-				user_path_ignore = user_path_ignore_list.get(user)
+			path = self.Path(self.__config, self.__info)
+			for user in self.__lists.user_list:
+				path.set(user, "user", self.__info.backup_user_type, self.__info.backup_user_time)
+				user_path_ignore = self.__lists.user_path_ignore_list.get(user)
 				# Full backup
-				if backup_user_type == "full":
-					user_cmds.append(self.__7z_create(self.__user_root_dirpath, user, user_path_ignore, path.backup_dirpath, path.backup_filename))
+				if self.__info.backup_user_type == "full":
+					user_cmds.append(self.__7z_create(self.__config.user_root_dirpath, user, user_path_ignore, path.backup_dirpath, path.backup_filename))
 				# Diff backup
-				if backup_user_type == "diff":
-					user_cmds.append(self.__7z_update(self.__user_root_dirpath, user, user_path_ignore, path.backup_dirpath, path.backup_filename, path.user_filepath_full))
+				if self.__info.backup_user_type == "diff":
+					user_cmds.append(self.__7z_update(self.__config.user_root_dirpath, user, user_path_ignore, path.backup_dirpath, path.backup_filename, path.user_filepath_full))
 					# Upload to Google Drive
 					gd_file = path.backup_dirpath + "/" + path.backup_filename
 					if os.path.isfile(gd_file):
-						user_cmds_gd.append("python \"" + self.__script_dirpath + "googledrive.py\""
-								" '" + gd_file + "' 'Diff for " + str(backup_user_time).upper() + "'")
+						user_cmds_gd.append("python \"" + self.__config.script_dirpath + "googledrive.py\""
+								" '" + gd_file + "' 'Diff for " + str(self.__info.backup_user_time).upper() + "'")
 			return user_cmds, user_cmds_gd
 		
 		def __mysqldump_permissions(self, db_dirpath, db_ignore_users, to_file):
@@ -455,8 +442,8 @@ class EygaBackup(object):
 			return "echo \"FLUSH LOGS;\" | mysql {pwd_db} " + self.__params_mysql
 		
 		def __mysql_purge_logs(self):
-			if self.__db_binlog_rm_hours.isdigit() and int(self.__db_binlog_rm_hours) > 0:
-				return "echo \"PURGE BINARY LOGS BEFORE '" + (datetime.now() - timedelta(hours=int(self.__db_binlog_rm_hours))).isoformat() + "';\" | mysql {pwd_db} " + self.__params_mysql
+			if self.__config.db_binlog_rm_hours.isdigit() and int(self.__config.db_binlog_rm_hours) > 0:
+				return "echo \"PURGE BINARY LOGS BEFORE '" + (datetime.now() - timedelta(hours=int(self.__config.db_binlog_rm_hours))).isoformat() + "';\" | mysql {pwd_db} " + self.__params_mysql
 			else:
 				return ""
 		
@@ -478,7 +465,7 @@ class EygaBackup(object):
 					"" + self.__mysql_flush_logs() + "\n"
 					"for log in $logs; do\n"
 					"    if [ -f \"" + filepath_7z + "\" ]; then rm \"" + filepath_7z + "\"; fi\n"
-					"    {nice}7z a {pwd_7z} " + self.__params_7z + " -w\"" + self.__backup_dirpath_tmp + "\""
+					"    {nice}7z a {pwd_7z} " + self.__params_7z + " -w\"" + self.__config.backup_dirpath_tmp + "\""
 					" \"" + filepath_7z + "\" \"" + db_binlog_dirpath + "/$log\""
 					" > /dev/null\n"
 					"done" + "\n")
@@ -486,7 +473,7 @@ class EygaBackup(object):
 		
 		def __mysqloptimize(self):
 			rcmd = ("{nice}mysqloptimize {pwd_db} " + self.__params_mysqloptimize + " --all-databases"
-					" > \"" + self.__backup_dirpath + "/mysqloptimize.log\"")
+					" > \"" + self.__config.backup_dirpath + "/mysqloptimize.log\"")
 			return rcmd
 		
 		def __7z_create(self, source_dirpath, source_name, extra_params, backup_dirpath, backup_filename):
@@ -494,7 +481,7 @@ class EygaBackup(object):
 				os.makedirs(backup_dirpath, mode=755)
 			filepath_7z = backup_dirpath + "/" + backup_filename
 			rcmd = ("if [ -f \"" + filepath_7z + "\" ]; then rm \"" + filepath_7z + "\"; fi\n"
-					"{nice}7z a {pwd_7z} " + self.__params_7z + " -w\"" + self.__backup_dirpath_tmp + "\""
+					"{nice}7z a {pwd_7z} " + self.__params_7z + " -w\"" + self.__config.backup_dirpath_tmp + "\""
 					"" + (extra_params if extra_params != None else "") + ""
 					" \"" + filepath_7z + "\" \"" + source_dirpath + "/" + source_name + "\""
 					" > /dev/null")
@@ -513,7 +500,7 @@ class EygaBackup(object):
 			filepath_7z = backup_dirpath + "/" + backup_filename
 			# http://a32.me/2010/08/7zip-differential-backup-linux-windows/
 			rcmd = ("if [ -f \"" + filepath_7z + "\" ]; then rm \"" + filepath_7z + "\"; fi\n"
-					"{nice}7z u {pwd_7z} " + self.__params_7z + " -w\"" + self.__backup_dirpath_tmp + "\""
+					"{nice}7z u {pwd_7z} " + self.__params_7z + " -w\"" + self.__config.backup_dirpath_tmp + "\""
 					"" + (extra_params if extra_params != None else "") + ""
 					" \"" + user_filepath_full + "\" \"" + source_dirpath + "/" + source_name + "\""
 					" -u- -up0q3r2x2y2z0w2\!\"" + filepath_7z + "\""
