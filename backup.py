@@ -78,7 +78,7 @@ class EygaBackup(object):
 	def __process(self, backup_x, cmds, debug_mode):
 		if cmds is None:
 			return
-		cmds = filter(None, cmds)
+		cmds = list(filter(None, cmds))
 		if len(cmds) == 0:
 			return
 		cmd = "\n".join(cmds).replace("{nice}", self.__extcmd_nice)
@@ -180,7 +180,7 @@ class EygaBackup(object):
 			# Calculate week number
 			week_start_1 = (datetime(2014, 12, 28) + timedelta(hours=day_hours)) # Corrections must be on Monday
 			week_start_2 = (script_runtime - timedelta(hours=week_hours))
-			shifted_week = ((week_start_2 - week_start_1).days / 7) % full_backup_weeks
+			shifted_week = int(((week_start_2 - week_start_1).days / 7) % full_backup_weeks)
 			# Set attributes
 			self.__set_backup_info(shifted_hour, shifted_weekday, shifted_week)
 		
@@ -216,9 +216,9 @@ class EygaBackup(object):
 		# Test shifting hour, day and week calculations
 		def test_shifting_time(self, split_day_by_hour, split_week_by_day, full_backup_weeks):
 			print("")
-			year = 2015
+			year = 2023
 			month = 1
-			for day in range(2, 12):
+			for day in range(2, 15):
 				for hour in range(0, 23):
 					script_runtime = datetime(year, month, day, hour)
 					self.__set_shifted_time(script_runtime, split_day_by_hour, split_week_by_day, full_backup_weeks)
@@ -358,7 +358,7 @@ class EygaBackup(object):
 			self.__user_root_dirpath    = user_root_dirpath
 			self.__params_mysql         = ""
 			self.__params_mysqldump     = "--skip-extended-insert --single-transaction --routines --triggers --events --no-tablespaces --mysqld-long-query-time=300"
-			self.__params_mysqloptimize = "--silent"
+			self.__params_mysqloptimize = "--silent --skip-database=mysql"
 			self.__params_7z            = "-bd -mhe=on -mf=off -mx={mx} -mmt={mmt}".format(mx=sevenzip_mx, mmt=sevenzip_mmt)
 		
 		# Prepare commands for backup of databases
@@ -367,11 +367,11 @@ class EygaBackup(object):
 				return
 			# Separate backup for every user
 			db_all_cmds = []
+			db_cmds_gd = []
 			path = self.Path(self.__backup_dirpath, self.__backup_time, self.__db_temp_dirpath_full, self.__db_temp_dirpath_diff)
 			for user in db_list_by_users:
 				db_cmds = []
 				db_cmds_7z = []
-				db_cmds_gd = []
 				path.set(user, "sql", backup_db_type, backup_db_time)
 				# Export all databases from specific user to files
 				export = False
@@ -528,13 +528,13 @@ if __name__ == "__main__":
 	else:
 		# Debug
 		print("# List of backup.py commands")
-		script_runtime = datetime(2015, 1, 3, 4)
+		script_runtime = datetime(2022, 12, 30, 1) # Weekly
 		print("\n\n# db = full, user = full, " + script_runtime.isoformat(' '))
 		EygaBackup(script_runtime).debug()
-		script_runtime = datetime(2015, 1, 4, 4)
+		script_runtime = datetime(2022, 12, 31, 1) # Daily
 		print("\n\n# db = full, user = diff, " + script_runtime.isoformat(' '))
 		EygaBackup(script_runtime).debug()
-		script_runtime = datetime(2015, 1, 4, 5)
+		script_runtime = datetime(2022, 12, 31, 2) # Hourly
 		print("\n\n# db = diff, user = none, " + script_runtime.isoformat(' '))
 		EygaBackup(script_runtime).debug()
 		# Test shifting time
