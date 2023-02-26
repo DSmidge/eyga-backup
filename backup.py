@@ -28,10 +28,8 @@ class EygaBackup(object):
 		# List of databases and user dirs to backup
 		lists = self.Lists(config)
 		# Prepare variables
-		self.__script_runtime = script_runtime
 		self.__config         = config
 		self.__info           = info
-		self.__lists          = lists
 		self.__extcmd_nice    = "nice -n {nice} ".format(nice=config.extcmd_nice) if config.extcmd_nice != "" else ""
 
 		# Prepare database and user dirs commands for archiving
@@ -51,6 +49,7 @@ class EygaBackup(object):
 
 	# Print debug text
 	def debug(self):
+		print("\n\n# db = " + str(self.__info.backup_db_type) + ", user = " + str(self.__info.backup_user_type) + ", " + self.__info.script_runtime.isoformat(' '))
 		self.__process_all(True)
 
 	# Test
@@ -75,7 +74,7 @@ class EygaBackup(object):
 		cmd = "\n".join(cmds).replace("{nice}", self.__extcmd_nice)
 		if not debug_mode:
 			with open(self.__config.backup_dirpath + "/backup.log", "a") as log:
-				log.write("\n" + self.__script_runtime.replace(microsecond=0).isoformat(' '))
+				log.write("\n" + self.__info.script_runtime.replace(microsecond=0).isoformat(' '))
 			start = datetime.now()
 			subprocess.call(cmd.replace("{pwd_db}", self.__config.authentication_db).replace("{pwd_7z}", self.__config.authentication_7z), shell=True)
 			stop = datetime.now()
@@ -157,7 +156,7 @@ class EygaBackup(object):
 	class BackupInfo(object):
 		
 		def __init__(self, script_runtime, config):
-			self.__script_runtime = script_runtime
+			self.script_runtime = script_runtime
 			self.__config = config
 			if self.__config.split_day_by_hour > 23:
 				self.__config.__split_day_by_hour = 0
@@ -170,7 +169,7 @@ class EygaBackup(object):
 		# Shift time to hour of full backup
 		def __set_shifted_time(self, script_runtime = None):
 			if script_runtime == None:
-				script_runtime = self.__script_runtime
+				script_runtime = self.script_runtime
 			# Fix hour
 			day_hours = self.__config.split_day_by_hour
 			shifted_hour = (script_runtime - timedelta(hours=day_hours)).hour
@@ -215,7 +214,7 @@ class EygaBackup(object):
 		
 		# Test shifting hour, day and week calculations
 		def test_shifting_time(self):
-			print("")
+			print("\n\n# Test shifting time")
 			year = 2023
 			month = 1
 			for day in range(2, 15):
@@ -443,7 +442,7 @@ class EygaBackup(object):
 		
 		def __mysql_purge_logs(self):
 			if self.__config.db_binlog_rm_hours.isdigit() and int(self.__config.db_binlog_rm_hours) > 0:
-				return "echo \"PURGE BINARY LOGS BEFORE '" + (datetime.now() - timedelta(hours=int(self.__config.db_binlog_rm_hours))).isoformat() + "';\" | mysql {pwd_db} " + self.__params_mysql
+				return "echo \"PURGE BINARY LOGS BEFORE '" + (self.__info.script_runtime - timedelta(hours=int(self.__config.db_binlog_rm_hours))).isoformat() + "';\" | mysql {pwd_db} " + self.__params_mysql
 			else:
 				return ""
 		
@@ -515,14 +514,11 @@ if __name__ == "__main__":
 	else:
 		# Debug
 		print("# List of backup.py commands")
-		script_runtime = datetime(2022, 12, 30, 1) # Weekly
-		print("\n\n# db = full, user = full, " + script_runtime.isoformat(' '))
+		script_runtime = datetime(2022, 12, 31, 1)
 		EygaBackup(script_runtime).debug()
-		script_runtime = datetime(2022, 12, 31, 1) # Daily
-		print("\n\n# db = full, user = diff, " + script_runtime.isoformat(' '))
+		script_runtime = datetime(2023, 1, 1, 1)
 		EygaBackup(script_runtime).debug()
-		script_runtime = datetime(2022, 12, 31, 2) # Hourly
-		print("\n\n# db = diff, user = none, " + script_runtime.isoformat(' '))
+		script_runtime = datetime(2023, 1, 1, 2)
 		EygaBackup(script_runtime).debug()
 		# Test shifting time
 		EygaBackup(script_runtime).test_shifting_time()
