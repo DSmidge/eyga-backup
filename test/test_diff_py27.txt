@@ -3,6 +3,7 @@
 
 # db = full, user = full, 2022-12-31 01:00:00
 echo "FLUSH LOGS;" | mysql {pwd_db} 
+echo "PURGE BINARY LOGS BEFORE '2022-12-30T00:00:00';" | mysql {pwd_db} 
 
 if [ "$(ls -A D:/Code/Eyga-Backup/test/backup/tmp/user1)" ]; then rm D:/Code/Eyga-Backup/test/backup/tmp/user1/*; fi
 if [ -f "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-w2.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-w2.7z"; fi
@@ -21,6 +22,7 @@ nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup
 
 # db = full, user = diff, 2023-01-01 01:00:00
 echo "FLUSH LOGS;" | mysql {pwd_db} 
+echo "PURGE BINARY LOGS BEFORE '2022-12-31T00:00:00';" | mysql {pwd_db} 
 
 if [ "$(ls -A D:/Code/Eyga-Backup/test/backup/tmp/user1)" ]; then rm D:/Code/Eyga-Backup/test/backup/tmp/user1/*; fi
 if [ -f "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-d1.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-d1.7z"; fi
