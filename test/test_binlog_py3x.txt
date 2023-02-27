@@ -5,15 +5,7 @@
 echo "FLUSH LOGS;" | mysql {pwd_db} 
 echo "PURGE BINARY LOGS BEFORE '2022-12-30T00:00:00';" | mysql {pwd_db} 
 { mysqldump {pwd_db} --skip-extended-insert --single-transaction --routines --triggers --events --no-tablespaces --mysqld-long-query-time=300 --no-create-info --databases mysql --tables db user; echo "\nFLUSH PRIVILEGES;"; } | sed "17s/^$/\nUSE \`mysql\`;\n/" | grep --invert-match --extended-regexp "^INSERT INTO \`user\` VALUES \('(\w|\-|\.)*','(root|debian-sys-maint)'," | nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -simysql.sql "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-w2.7z" > /dev/null
-
-if [ "$(ls -A D:/Code/Eyga-Backup/test/backup/tmp/server)" ]; then rm D:/Code/Eyga-Backup/test/backup/tmp/server/*; fi
-if [ -f "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-w2.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-w2.7z"; fi
-nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup/test/backup/7zip-tmp" "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-w2.7z" "D:/Code/Eyga-Backup/test/backup/tmp/server" > /dev/null
 { echo "SET SESSION UNIQUE_CHECKS = 0;\nSET SESSION FOREIGN_KEY_CHECKS = 0;\n\n"; nice -n 15 mysqldump {pwd_db} --skip-extended-insert --single-transaction --routines --triggers --events --no-tablespaces --mysqld-long-query-time=300 --databases sys_db2; } | nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -sisys_db2.sql "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-w2.7z" > /dev/null
-
-if [ "$(ls -A D:/Code/Eyga-Backup/test/backup/tmp/user1)" ]; then rm D:/Code/Eyga-Backup/test/backup/tmp/user1/*; fi
-if [ -f "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-w2.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-w2.7z"; fi
-nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup/test/backup/7zip-tmp" "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-w2.7z" "D:/Code/Eyga-Backup/test/backup/tmp/user1" > /dev/null
 { echo "SET SESSION UNIQUE_CHECKS = 0;\nSET SESSION FOREIGN_KEY_CHECKS = 0;\n\n"; nice -n 15 mysqldump {pwd_db} --skip-extended-insert --single-transaction --routines --triggers --events --no-tablespaces --mysqld-long-query-time=300 --databases user1_db1; } | nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -siuser1_db1.sql "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-w2.7z" > /dev/null
 nice -n 15 mysqloptimize {pwd_db} --silent --skip-database=mysql --all-databases > "D:/Code/Eyga-Backup/test/backup/mysqloptimize.log"
 if [ -f "D:/Code/Eyga-Backup/test/backup/user1/user1-user-full-w2.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/user1/user1-user-full-w2.7z"; fi
@@ -24,15 +16,7 @@ nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup
 echo "FLUSH LOGS;" | mysql {pwd_db} 
 echo "PURGE BINARY LOGS BEFORE '2022-12-31T00:00:00';" | mysql {pwd_db} 
 { mysqldump {pwd_db} --skip-extended-insert --single-transaction --routines --triggers --events --no-tablespaces --mysqld-long-query-time=300 --no-create-info --databases mysql --tables db user; echo "\nFLUSH PRIVILEGES;"; } | sed "17s/^$/\nUSE \`mysql\`;\n/" | grep --invert-match --extended-regexp "^INSERT INTO \`user\` VALUES \('(\w|\-|\.)*','(root|debian-sys-maint)'," | nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -simysql.sql "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-d1.7z" > /dev/null
-
-if [ "$(ls -A D:/Code/Eyga-Backup/test/backup/tmp/server)" ]; then rm D:/Code/Eyga-Backup/test/backup/tmp/server/*; fi
-if [ -f "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-d1.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-d1.7z"; fi
-nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup/test/backup/7zip-tmp" "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-d1.7z" "D:/Code/Eyga-Backup/test/backup/tmp/server" > /dev/null
 { echo "SET SESSION UNIQUE_CHECKS = 0;\nSET SESSION FOREIGN_KEY_CHECKS = 0;\n\n"; nice -n 15 mysqldump {pwd_db} --skip-extended-insert --single-transaction --routines --triggers --events --no-tablespaces --mysqld-long-query-time=300 --databases sys_db2; } | nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -sisys_db2.sql "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-d1.7z" > /dev/null
-
-if [ "$(ls -A D:/Code/Eyga-Backup/test/backup/tmp/user1)" ]; then rm D:/Code/Eyga-Backup/test/backup/tmp/user1/*; fi
-if [ -f "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-d1.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-d1.7z"; fi
-nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup/test/backup/7zip-tmp" "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-d1.7z" "D:/Code/Eyga-Backup/test/backup/tmp/user1" > /dev/null
 { echo "SET SESSION UNIQUE_CHECKS = 0;\nSET SESSION FOREIGN_KEY_CHECKS = 0;\n\n"; nice -n 15 mysqldump {pwd_db} --skip-extended-insert --single-transaction --routines --triggers --events --no-tablespaces --mysqld-long-query-time=300 --databases user1_db1; } | nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -siuser1_db1.sql "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-d1.7z" > /dev/null
 if [ -f "D:/Code/Eyga-Backup/test/backup/user1/user1-user-diff-d1.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/user1/user1-user-diff-d1.7z"; fi
 nice -n 15 7z u {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup/test/backup/7zip-tmp" -x\!"user1/relative_path_filter1" -x\!"user1/relative_path_filter2;user2:relative_path_filter3" "D:/Code/Eyga-Backup/test/backup/user1/user1-user-full-w2.7z" "D:/Code/Eyga-Backup/test/user/user1" -u- -up0q3r2x2y2z0w2\!"D:/Code/Eyga-Backup/test/backup/user1/user1-user-diff-d1.7z" > /dev/null
@@ -45,8 +29,6 @@ for log in $logs; do
     if [ -f "D:/Code/Eyga-Backup/test/backup/server/server-sql-diff-h01.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/server/server-sql-diff-h01.7z"; fi
     nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup/test/backup/7zip-tmp" "D:/Code/Eyga-Backup/test/backup/server/server-sql-diff-h01.7z" "D:/Code/Eyga-Backup/test/db-binlog/$log" > /dev/null
 done
-
-{ mysqldump {pwd_db} --skip-extended-insert --single-transaction --routines --triggers --events --no-tablespaces --mysqld-long-query-time=300 --no-create-info --databases mysql --tables db user; echo "\nFLUSH PRIVILEGES;"; } | sed "17s/^$/\nUSE \`mysql\`;\n/" | grep --invert-match --extended-regexp "^INSERT INTO \`user\` VALUES \('(\w|\-|\.)*','(root|debian-sys-maint)'," | nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -simysql.sql "D:/Code/Eyga-Backup/test/backup/server/server-sql-diff-h01.7z" > /dev/null
 
 
 # Test shifting time

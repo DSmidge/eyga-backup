@@ -360,36 +360,34 @@ class EygaBackup(object):
 				db_cmds_user_7z = []
 				path.set(user, "sql", self.__info.backup_db_type, self.__info.backup_db_time)
 				# Export all databases from specific user to files
-				export = False
-				db_cmds_user.append("\nif [ \"$(ls -A " + path.db_dirpath + ")\" ]; then rm " + path.db_dirpath + "/*; fi")
 				if user == self.__config.db_default_user:
 					if self.__config.db_backup_mode == "binlog":
 						# Backup binary logs
 						if self.__info.backup_db_type == "full":
-							db_cmds.insert(0, self.__mysql_flush_logs())
-							db_cmds.insert(1, self.__mysql_purge_logs())
-						if self.__info.backup_db_type == "diff":
-							db_cmds.append(self.__mysql_backup_binlog(self.__config.db_binlog_dirpath, path.backup_dirpath, path.backup_filename))
+							db_cmds_user_7z.append(self.__mysql_flush_logs())
+							db_cmds_user_7z.append(self.__mysql_purge_logs())
+						if self.__config.diff_backup == True and self.__info.backup_db_type == "diff":
+							db_cmds_user_7z.append(self.__mysql_backup_binlog(self.__config.db_binlog_dirpath, path.backup_dirpath, path.backup_filename))
 					# Backup database permissions
-					db_cmds.append(self.__mysqldump_permissions(path.db_dirpath, self.__config.db_ignore_users, False) + ""
-							"" + self.__7z_append("mysql.sql", path.backup_dirpath, path.backup_filename))
+					if self.__info.backup_db_type == "full":
+						db_cmds_user_7z.append(self.__mysqldump_permissions(path.db_dirpath, self.__config.db_ignore_users, False) + ""
+								"" + self.__7z_append("mysql.sql", path.backup_dirpath, path.backup_filename))
 				for db in self.__lists.db_list_by_users[user]:
 					# Full backup with binary logs
 					if self.__config.db_backup_mode == "binlog" and self.__info.backup_db_type == "full":
-						export = True
-						db_cmds_user_7z.append(self.__mysqldump_full(db, path.db_dirpath, False) + ""
-								"" + self.__7z_append(db + ".sql", path.backup_dirpath, path.backup_filename))
+						db_cmds_user_7z.append((self.__mysqldump_full(db, path.db_dirpath, False) + ""
+								"" + self.__7z_append(db + ".sql", path.backup_dirpath, path.backup_filename)))
 					# Full backup OR force full backup on diff
-					if self.__config.db_backup_mode == "diff" and (self.__info.backup_db_type == "full" or (self.__info.backup_db_type == "diff" and not os.path.isfile(path.db_dirpath_full + "/" + db + ".sql"))):
-						export = True
+					if self.__config.db_backup_mode == "dumpdiff" and (self.__info.backup_db_type == "full" or self.__info.backup_db_type == "diff" and not os.path.isfile(path.db_dirpath_full + "/" + db + ".sql")):
 						db_cmds_user.append(self.__mysqldump_full(db, path.db_dirpath, True))
 					# Diff backup
-					if self.__config.db_backup_mode == "diff" and self.__info.backup_db_type == "diff":
-						export = True
+					if self.__config.diff_backup == True and self.__config.db_backup_mode == "dumpdiff" and self.__info.backup_db_type == "diff":
 						db_cmds_user_7z.append(self.__mysqldump_diff(db, path.db_dirpath, path.db_dirpath_full, False) + ""
 								"" + self.__7z_append(db + ".sql.diff", path.backup_dirpath, path.backup_filename))
 				# Compress databases
-				db_cmds_user.append(self.__7z_create(path.db_temp_dirpath, user, None, path.backup_dirpath, path.backup_filename))
+				if (len(db_cmds_user) > 0):
+					db_cmds_user.insert(0, "if [ \"$(ls -A " + path.db_dirpath + ")\" ]; then rm " + path.db_dirpath + "/*; fi")
+					db_cmds_user.append(self.__7z_create(path.db_temp_dirpath, user, None, path.backup_dirpath, path.backup_filename))
 				if len(db_cmds_user_7z) > 0:
 					db_cmds_user.extend(db_cmds_user_7z)
 				# Upload to Google Drive
@@ -398,7 +396,7 @@ class EygaBackup(object):
 					db_cmds_gd.append("python \"" + self.__config.script_dirpath + "googledrive.py\""
 							" '" + gd_file + "' 'Diff for " + str(self.__info.backup_db_time).upper() + "'")
 				# Add to all commands
-				if (export == True):
+				if (len(db_cmds_user) > 0):
 					db_cmds.extend(db_cmds_user)
 			# Database optimizations
 			if self.__config.db_optimize == True and self.__info.db_optimize == True:
@@ -467,7 +465,7 @@ class EygaBackup(object):
 					"    {nice}7z a {pwd_7z} " + self.__params_7z + " -w\"" + self.__config.backup_dirpath_tmp + "\""
 					" \"" + filepath_7z + "\" \"" + db_binlog_dirpath + "/$log\""
 					" > /dev/null\n"
-					"done" + "\n")
+					"done")
 			return rcmd
 		
 		def __mysqloptimize(self):
@@ -520,7 +518,6 @@ if __name__ == "__main__":
 		EygaBackup(script_runtime).debug()
 		script_runtime = datetime(2023, 1, 1, 2)
 		EygaBackup(script_runtime).debug()
-		# Test shifting time
 		EygaBackup(script_runtime).test_shifting_time()
 
 
