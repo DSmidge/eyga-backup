@@ -332,6 +332,7 @@ class EygaBackup(object):
 				# Set attributes
 				self.backup_dirpath     = backup_dirpath
 				self.backup_filename    = backup_filename
+				self.backup_filepath    = backup_dirpath + "/" + backup_filename
 				self.db_temp_dirpath    = db_temp_dirpath
 				self.db_dirpath         = db_dirpath
 				self.db_dirpath_full    = db_dirpath_full
@@ -358,43 +359,46 @@ class EygaBackup(object):
 			for user in self.__lists.db_list_by_users:
 				db_cmds_user = []
 				db_cmds_user_7z = []
+				clear_tmp_dir = True
 				path.set(user, "sql", self.__info.backup_db_type, self.__info.backup_db_time)
 				# Export all databases from specific user to files
 				if user == self.__config.db_default_user:
 					if self.__config.db_backup_mode == "binlog":
 						# Backup binary logs
-						if self.__info.backup_db_type == "full":
-							db_cmds_user_7z.append(self.__mysql_flush_logs())
-							db_cmds_user_7z.append(self.__mysql_purge_logs())
-						if self.__config.diff_backup == True and self.__info.backup_db_type == "diff":
-							db_cmds_user_7z.append(self.__mysql_backup_binlog(self.__config.db_binlog_dirpath, path.backup_dirpath, path.backup_filename))
+						# if self.__info.backup_db_type == "full":
+						# 	db_cmds_user_7z.append(self.__mysql_flush_logs())
+						# 	db_cmds_user_7z.append(self.__mysql_purge_logs())
+						if self.__info.backup_db_type == "diff" and self.__config.diff_backup == True:
+							db_cmds_user_7z.append(self.__mysql_backup_binlog(self.__config.db_binlog_dirpath, path.backup_filepath))
 					# Backup database permissions
 					if self.__info.backup_db_type == "full":
 						db_cmds_user_7z.append(self.__mysqldump_permissions(path.db_dirpath, self.__config.db_ignore_users, False) + ""
-								"" + self.__7z_append("mysql.sql", path.backup_dirpath, path.backup_filename))
+								"" + self.__7z_append("mysql.sql", path.backup_filepath))
 				for db in self.__lists.db_list_by_users[user]:
 					# Full backup with binary logs
 					if self.__config.db_backup_mode == "binlog" and self.__info.backup_db_type == "full":
 						db_cmds_user_7z.append((self.__mysqldump_full(db, path.db_dirpath, False) + ""
-								"" + self.__7z_append(db + ".sql", path.backup_dirpath, path.backup_filename)))
+								"" + self.__7z_append(db + ".sql", path.backup_filepath)))
 					# Full backup OR force full backup on diff
 					if self.__config.db_backup_mode == "dumpdiff" and (self.__info.backup_db_type == "full" or self.__info.backup_db_type == "diff" and not os.path.isfile(path.db_dirpath_full + "/" + db + ".sql")):
 						db_cmds_user.append(self.__mysqldump_full(db, path.db_dirpath, True))
 					# Diff backup
-					if self.__config.diff_backup == True and self.__config.db_backup_mode == "dumpdiff" and self.__info.backup_db_type == "diff":
+					elif self.__config.db_backup_mode == "dumpdiff" and self.__info.backup_db_type == "diff" and self.__config.diff_backup == True:
+						clear_tmp_dir = False
 						db_cmds_user_7z.append(self.__mysqldump_diff(db, path.db_dirpath, path.db_dirpath_full, False) + ""
-								"" + self.__7z_append(db + ".sql.diff", path.backup_dirpath, path.backup_filename))
-				# Compress databases
+								"" + self.__7z_append(db + ".sql.diff", path.backup_filepath))
+				# Archive databases
 				if (len(db_cmds_user) > 0):
-					db_cmds_user.insert(0, "if [ \"$(ls -A " + path.db_dirpath + ")\" ]; then rm " + path.db_dirpath + "/*; fi")
-					db_cmds_user.append(self.__7z_create(path.db_temp_dirpath, user, None, path.backup_dirpath, path.backup_filename))
+					if clear_tmp_dir == True:
+						db_cmds_user.insert(0, "if [ \"$(ls -A " + path.db_dirpath + ")\" ]; then rm " + path.db_dirpath + "/*; fi")
+					db_cmds_user_7z.append(self.__7z_create(path.db_temp_dirpath, user, None, path.backup_dirpath, path.backup_filepath))
 				if len(db_cmds_user_7z) > 0:
+					db_cmds_user.append("if [ -f \"" + path.backup_filepath + "\" ]; then rm \"" + path.backup_filepath + "\"; fi")
 					db_cmds_user.extend(db_cmds_user_7z)
 				# Upload to Google Drive
-				gd_file = path.backup_dirpath + "/" + path.backup_filename
-				if os.path.isfile(gd_file):
+				if os.path.isfile(path.backup_filepath):
 					db_cmds_gd.append("python \"" + self.__config.script_dirpath + "googledrive.py\""
-							" '" + gd_file + "' 'Diff for " + str(self.__info.backup_db_time).upper() + "'")
+							" '" + path.backup_filepath + "' 'Diff for " + str(self.__info.backup_db_time).upper() + "'")
 				# Add to all commands
 				if (len(db_cmds_user) > 0):
 					db_cmds.extend(db_cmds_user)
@@ -416,15 +420,18 @@ class EygaBackup(object):
 				user_path_ignore = self.__lists.user_path_ignore_list.get(user)
 				# Full backup
 				if self.__info.backup_user_type == "full":
-					user_cmds.append(self.__7z_create(self.__config.user_root_dirpath, user, user_path_ignore, path.backup_dirpath, path.backup_filename))
+					user_cmds.append(self.__7z_create(self.__config.user_root_dirpath, user, user_path_ignore, path.backup_dirpath, path.backup_filepath))
 				# Diff backup
 				if self.__info.backup_user_type == "diff":
-					user_cmds.append(self.__7z_update(self.__config.user_root_dirpath, user, user_path_ignore, path.backup_dirpath, path.backup_filename, path.user_filepath_full))
+					user_cmds.append(self.__7z_update(self.__config.user_root_dirpath, user, user_path_ignore, path.backup_filepath, path.user_filepath_full))
 					# Upload to Google Drive
 					gd_file = path.backup_dirpath + "/" + path.backup_filename
 					if os.path.isfile(gd_file):
 						user_cmds_gd.append("python \"" + self.__config.script_dirpath + "googledrive.py\""
 								" '" + gd_file + "' 'Diff for " + str(self.__info.backup_user_time).upper() + "'")
+				# Delete file user archive
+				if (len(user_cmds) > 0):
+					user_cmds.insert(0, "if [ -f \"" + path.backup_filepath + "\" ]; then rm \"" + path.backup_filepath + "\"; fi")
 			return user_cmds, user_cmds_gd
 		
 		def __mysqldump_permissions(self, db_dirpath, db_ignore_users, to_file):
@@ -456,14 +463,13 @@ class EygaBackup(object):
 					"" + (" > \"" + db_dirpath + "/" + db + ".sql.diff\"" if to_file else ""))
 			return rcmd
 		
-		def __mysql_backup_binlog(self, db_binlog_dirpath, backup_dirpath, backup_filename):
-			filepath_7z = backup_dirpath + "/" + backup_filename
-			rcmd = ("logs=`echo \"SHOW BINARY LOGS;\" | mysql {pwd_db} " + self.__params_mysql + " | tail -n1 | awk '{print $1}'`\n"
-					"" + self.__mysql_flush_logs() + "\n"
+		def __mysql_backup_binlog(self, db_binlog_dirpath, backup_filepath):
+			rcmd = ("" + self.__mysql_flush_logs() + "\n"
+					"logs=`echo \"SHOW BINARY LOGS;\" | mysql {pwd_db} " + self.__params_mysql + " | tail -n1 | awk '{print $1}'`\n"
 					"for log in $logs; do\n"
-					"    if [ -f \"" + filepath_7z + "\" ]; then rm \"" + filepath_7z + "\"; fi\n"
+					"    if [ -f \"" + backup_filepath + "\" ]; then rm \"" + backup_filepath + "\"; fi\n"
 					"    {nice}7z a {pwd_7z} " + self.__params_7z + " -w\"" + self.__config.backup_dirpath_tmp + "\""
-					" \"" + filepath_7z + "\" \"" + db_binlog_dirpath + "/$log\""
+					" \"" + backup_filepath + "\" \"" + db_binlog_dirpath + "/$log\""
 					" > /dev/null\n"
 					"done")
 			return rcmd
@@ -473,34 +479,29 @@ class EygaBackup(object):
 					" > \"" + self.__config.backup_dirpath + "/mysqloptimize.log\"")
 			return rcmd
 		
-		def __7z_create(self, source_dirpath, source_name, extra_params, backup_dirpath, backup_filename):
+		def __7z_create(self, source_dirpath, source_name, extra_params, backup_dirpath, backup_filepath):
 			if not os.path.isdir(backup_dirpath):
 				os.makedirs(backup_dirpath, mode=755)
-			filepath_7z = backup_dirpath + "/" + backup_filename
-			rcmd = ("if [ -f \"" + filepath_7z + "\" ]; then rm \"" + filepath_7z + "\"; fi\n"
-					"{nice}7z a {pwd_7z} " + self.__params_7z + " -w\"" + self.__config.backup_dirpath_tmp + "\""
+			rcmd = ("{nice}7z a {pwd_7z} " + self.__params_7z + " -w\"" + self.__config.backup_dirpath_tmp + "\""
 					"" + (extra_params if extra_params != None else "") + ""
-					" \"" + filepath_7z + "\" \"" + source_dirpath + "/" + source_name + "\""
+					" \"" + backup_filepath + "\" \"" + source_dirpath + "/" + source_name + "\""
 					" > /dev/null")
 			return rcmd
 		
-		def __7z_append(self, source_name, backup_dirpath, backup_filename):
-			filepath_7z = backup_dirpath + "/" + backup_filename
+		def __7z_append(self, source_name, backup_filepath):
 			rcmd = (" | {nice}7z a {pwd_7z} " + self.__params_7z + " -si" + source_name + ""
-					" \"" + filepath_7z + "\""
+					" \"" + backup_filepath + "\""
 					" > /dev/null")
 			return rcmd
 		
-		def __7z_update(self, source_dirpath, source_name, extra_params, backup_dirpath, backup_filename, user_filepath_full):
+		def __7z_update(self, source_dirpath, source_name, extra_params, backup_filepath, user_filepath_full):
 			if not os.path.isfile(user_filepath_full):
 				return "# Missing file for 7z update: " + user_filepath_full
-			filepath_7z = backup_dirpath + "/" + backup_filename
 			# http://a32.me/2010/08/7zip-differential-backup-linux-windows/
-			rcmd = ("if [ -f \"" + filepath_7z + "\" ]; then rm \"" + filepath_7z + "\"; fi\n"
-					"{nice}7z u {pwd_7z} " + self.__params_7z + " -w\"" + self.__config.backup_dirpath_tmp + "\""
+			rcmd = ("{nice}7z u {pwd_7z} " + self.__params_7z + " -w\"" + self.__config.backup_dirpath_tmp + "\""
 					"" + (extra_params if extra_params != None else "") + ""
 					" \"" + user_filepath_full + "\" \"" + source_dirpath + "/" + source_name + "\""
-					" -u- -up0q3r2x2y2z0w2\!\"" + filepath_7z + "\""
+					" -u- -up0q3r2x2y2z0w2\!\"" + backup_filepath + "\""
 					" > /dev/null")
 			return rcmd
 

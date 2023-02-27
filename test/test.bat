@@ -1,4 +1,9 @@
 @echo off
+
+echo Notes:
+echo - Full backup file database for user user1 exists so diff can be made.
+echo - Full backup file database for user sys does not exist so full backup is made instead of diff.
+
 cd ..
 copy /y authentications.sample.cfg authentications.cfg
 copy /y test\settings_binlog.cfg settings.cfg
