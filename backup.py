@@ -60,7 +60,7 @@ class EygaBackup(object):
 	def __process_all(self, debug_mode):
 		self.__process("db", self.__db_cmds_core, debug_mode)
 		self.__process("user", self.__user_cmds_core, debug_mode)
-		if self.__config.gd_upload_enable == "1":
+		if self.__config.gd_upload_enable == True:
 			self.__process("db_gd", self.__db_cmds_gd, debug_mode)
 			self.__process("user_gd", self.__user_cmds_gd, debug_mode)
 
@@ -80,7 +80,7 @@ class EygaBackup(object):
 			stop = datetime.now()
 			with open(self.__config.backup_dirpath + "/backup.log", "a") as log:
 				log.write(", " + backup_x + " = " + str(round((stop - start).total_seconds(), 1)) + "s")
-				if self.__config.backup_verbose == "1":
+				if self.__config.backup_verbose == True:
 					log.write(", commands:\n" + cmd + " #")
 		else:
 			print(cmd)
@@ -118,7 +118,7 @@ class EygaBackup(object):
 			# Result
 			self.backup_dirpath       = config.get(config_section, "backup_dirpath")
 			self.backup_dirpath_tmp   = config.get(config_section, "backup_dirpath_tmp")
-			self.backup_verbose       = config.get(config_section, "backup_verbose")
+			self.backup_verbose       = config.getboolean(config_section, "backup_verbose")
 			self.db_root_dirpath      = config.get(config_section, "db_root_dirpath")
 			self.db_temp_dirpath_full = config.get(config_section, "db_temp_dirpath_full")
 			self.db_temp_dirpath_diff = config.get(config_section, "db_temp_dirpath_diff")
@@ -138,8 +138,8 @@ class EygaBackup(object):
 			self.split_week_by_day    = config.getint(config_section, "split_week_by_day")
 			self.split_day_by_hour    = config.getint(config_section, "split_day_by_hour")
 			self.full_backup_weeks    = config.getint(config_section, "full_backup_weeks")
-			self.diff_backup          = config.getboolean(config_section, "diff_backup")
-			self.gd_upload_enable     = config.getint(config_section, "gd_upload_enable")
+			self.db_diff_backup       = config.getboolean(config_section, "db_diff_backup")
+			self.gd_upload_enable     = config.getboolean(config_section, "gd_upload_enable")
 		
 		# Read authentications form config file
 		def __authentications(self, config_filename):
@@ -344,7 +344,7 @@ class EygaBackup(object):
 			self.__info                 = info
 			self.__lists                = lists
 			self.__params_mysql         = ""
-			self.__params_mysqldump     = "--skip-extended-insert --single-transaction --routines --triggers --events --no-tablespaces --mysqld-long-query-time=300"
+			self.__params_mysqldump     = "--single-transaction --routines --triggers --events --no-tablespaces --mysqld-long-query-time=300"
 			self.__params_mysqloptimize = "--silent --skip-database=mysql"
 			self.__params_7z            = "-bd -mhe=on -mf=off -mx={mx} -mmt={mmt}".format(mx=self.__config.sevenzip_mx, mmt=self.__config.sevenzip_mmt)
 		
@@ -365,10 +365,9 @@ class EygaBackup(object):
 				if user == self.__config.db_default_user:
 					if self.__config.db_backup_mode == "binlog":
 						# Backup binary logs
-						# if self.__info.backup_db_type == "full":
-						# 	db_cmds_user_7z.append(self.__mysql_flush_logs())
-						# 	db_cmds_user_7z.append(self.__mysql_purge_logs())
-						if self.__info.backup_db_type == "diff" and self.__config.diff_backup == True:
+						if self.__info.backup_db_type == "full":
+							db_cmds_user_7z.append(self.__mysql_purge_logs())
+						if self.__info.backup_db_type == "diff" and self.__config.db_diff_backup == True:
 							db_cmds_user_7z.append(self.__mysql_backup_binlog(self.__config.db_binlog_dirpath, path.backup_filepath))
 					# Backup database permissions
 					if self.__info.backup_db_type == "full":
@@ -383,7 +382,7 @@ class EygaBackup(object):
 					if self.__config.db_backup_mode == "dumpdiff" and (self.__info.backup_db_type == "full" or self.__info.backup_db_type == "diff" and not os.path.isfile(path.db_dirpath_full + "/" + db + ".sql")):
 						db_cmds_user.append(self.__mysqldump_full(db, path.db_dirpath, True))
 					# Diff backup
-					elif self.__config.db_backup_mode == "dumpdiff" and self.__info.backup_db_type == "diff" and self.__config.diff_backup == True:
+					elif self.__config.db_backup_mode == "dumpdiff" and self.__info.backup_db_type == "diff" and self.__config.db_diff_backup == True:
 						clear_tmp_dir = False
 						db_cmds_user_7z.append(self.__mysqldump_diff(db, path.db_dirpath, path.db_dirpath_full, False) + ""
 								"" + self.__7z_append(db + ".sql.diff", path.backup_filepath))
@@ -434,16 +433,31 @@ class EygaBackup(object):
 					user_cmds.insert(0, "if [ -f \"" + path.backup_filepath + "\" ]; then rm \"" + path.backup_filepath + "\"; fi")
 			return user_cmds, user_cmds_gd
 		
+		def __mysqldump_extra_params(self):
+			if self.__config.db_diff_backup == True:
+				return "--skip-extended-insert "
+			else:
+				return ""
+		
 		def __mysqldump_permissions(self, db_dirpath, db_ignore_users, to_file):
-			rcmd = ("{ mysqldump {pwd_db} " + self.__params_mysqldump + " --no-create-info --databases mysql --tables db user;"
+			rcmd = ("{ mysqldump {pwd_db} " + self.__mysqldump_extra_params() + self.__params_mysqldump + " --no-create-info --databases mysql --tables db user;"
 					" echo \"\\nFLUSH PRIVILEGES;\"; }"
 					" | sed \"17s/^$/\\nUSE \`mysql\`;\\n/\""
 					" | grep --invert-match --extended-regexp \"^INSERT INTO \`user\` VALUES \('(\w|\-|\.)*','(" + db_ignore_users + ")',\""
 					"" + (" > \"" + db_dirpath + "/mysql.sql\"" if to_file else ""))
 			return rcmd
 		
-		def __mysql_flush_logs(self):
-			return "echo \"FLUSH LOGS;\" | mysql {pwd_db} " + self.__params_mysql
+		def __mysqldump_full(self, db, db_dirpath, to_file):
+			rcmd = ("{ echo \"SET SESSION UNIQUE_CHECKS = 0;\\nSET SESSION FOREIGN_KEY_CHECKS = 0;\\n\\n\"; "
+					"{nice}mysqldump {pwd_db} " + self.__mysqldump_extra_params() + self.__params_mysqldump + " --databases " + db + "; }"
+					"" + (" > \"" + db_dirpath + "/" + db + ".sql\"" if to_file else ""))
+			return rcmd
+		
+		def __mysqldump_diff(self, db, db_dirpath, db_dirpath_full, to_file):
+			rcmd = ("{nice}mysqldump {pwd_db} " + self.__mysqldump_extra_params() + self.__params_mysqldump + " --databases " + db + ""
+					" | diff \"" + db_dirpath_full + "/" + db + ".sql\" -"
+					"" + (" > \"" + db_dirpath + "/" + db + ".sql.diff\"" if to_file else ""))
+			return rcmd
 		
 		def __mysql_purge_logs(self):
 			if self.__config.db_binlog_rm_hours.isdigit() and int(self.__config.db_binlog_rm_hours) > 0:
@@ -451,20 +465,8 @@ class EygaBackup(object):
 			else:
 				return ""
 		
-		def __mysqldump_full(self, db, db_dirpath, to_file):
-			rcmd = ("{ echo \"SET SESSION UNIQUE_CHECKS = 0;\\nSET SESSION FOREIGN_KEY_CHECKS = 0;\\n\\n\"; "
-					"{nice}mysqldump {pwd_db} " + self.__params_mysqldump + " --databases " + db + "; }"
-					"" + (" > \"" + db_dirpath + "/" + db + ".sql\"" if to_file else ""))
-			return rcmd
-		
-		def __mysqldump_diff(self, db, db_dirpath, db_dirpath_full, to_file):
-			rcmd = ("{nice}mysqldump {pwd_db} " + self.__params_mysqldump + " --databases " + db + ""
-					" | diff \"" + db_dirpath_full + "/" + db + ".sql\" -"
-					"" + (" > \"" + db_dirpath + "/" + db + ".sql.diff\"" if to_file else ""))
-			return rcmd
-		
 		def __mysql_backup_binlog(self, db_binlog_dirpath, backup_filepath):
-			rcmd = ("" + self.__mysql_flush_logs() + "\n"
+			rcmd = ("echo \"FLUSH LOGS;\" | mysql {pwd_db} " + self.__params_mysql + "\n"
 					"logs=`echo \"SHOW BINARY LOGS;\" | mysql {pwd_db} " + self.__params_mysql + " | tail -n1 | awk '{print $1}'`\n"
 					"for log in $logs; do\n"
 					"    if [ -f \"" + backup_filepath + "\" ]; then rm \"" + backup_filepath + "\"; fi\n"
