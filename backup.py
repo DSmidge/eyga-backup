@@ -49,7 +49,7 @@ class EygaBackup(object):
 
 	# Print debug text
 	def debug(self):
-		print("\n\n# db = " + str(self.__info.backup_db_type) + ", user = " + str(self.__info.backup_user_type) + ", " + self.__info.script_runtime.isoformat(' '))
+		print("\n\n# db = " + str(self.__info.backup_db_type) + ", user = " + str(self.__info.backup_user_type) + ", " + self.__info.script_runtime.isoformat(" "))
 		self.__process_all(True)
 
 	# Test
@@ -74,7 +74,7 @@ class EygaBackup(object):
 		cmd = "\n".join(cmds).replace("{nice}", self.__extcmd_nice)
 		if not debug_mode:
 			with open(self.__config.backup_dirpath + "/backup.log", "a") as log:
-				log.write("\n" + self.__info.script_runtime.replace(microsecond=0).isoformat(' '))
+				log.write("\n" + self.__info.script_runtime.replace(microsecond=0).isoformat(" "))
 			start = datetime.now()
 			subprocess.call(cmd.replace("{pwd_db}", self.__config.authentication_db).replace("{pwd_7z}", self.__config.authentication_7z), shell=True)
 			stop = datetime.now()
@@ -123,6 +123,7 @@ class EygaBackup(object):
 			self.db_temp_dirpath_full = config.get(config_section, "db_temp_dirpath_full")
 			self.db_temp_dirpath_diff = config.get(config_section, "db_temp_dirpath_diff")
 			self.db_backup_mode       = config.get(config_section, "db_backup_mode")
+			self.db_dumpdiff_pipecmd  = config.get(config_section, "db_dumpdiff_pipecmd")
 			self.db_binlog_dirpath    = config.get(config_section, "db_binlog_dirpath")
 			self.db_binlog_rm_hours   = config.get(config_section, "db_binlog_rm_hours")
 			self.db_default_user      = config.get(config_section, "db_default_user")
@@ -221,7 +222,7 @@ class EygaBackup(object):
 				for hour in range(0, 23):
 					script_runtime = datetime(year, month, day, hour)
 					self.__set_shifted_time(script_runtime)
-					print("runtume: " + script_runtime.isoformat(' ') + ""
+					print("runtume: " + script_runtime.isoformat(" ") + ""
 							", time: " + str(self.backup_time) + ""
 							", db_type: " + str(self.backup_db_type) + ""
 							", db_time: " + str(self.backup_db_time) + ""
@@ -433,14 +434,9 @@ class EygaBackup(object):
 					user_cmds.insert(0, "if [ -f \"" + path.backup_filepath + "\" ]; then rm \"" + path.backup_filepath + "\"; fi")
 			return user_cmds, user_cmds_gd
 		
-		def __mysqldump_extra_params(self):
-			if self.__config.db_diff_backup == True:
-				return "--skip-extended-insert "
-			else:
-				return ""
-		
 		def __mysqldump_permissions(self, db_dirpath, db_ignore_users, to_file):
-			rcmd = ("{ mysqldump {pwd_db} " + self.__mysqldump_extra_params() + self.__params_mysqldump + " --no-create-info --databases mysql --tables db user;"
+			rcmd = ("{ mysqldump {pwd_db} " + self.__params_mysqldump + " --no-create-info --databases mysql --tables db user"
+					" " + self.__config.db_dumpdiff_pipecmd + ";"
 					" echo \"\\nFLUSH PRIVILEGES;\"; }"
 					" | sed \"17s/^$/\\nUSE \`mysql\`;\\n/\""
 					" | grep --invert-match --extended-regexp \"^INSERT INTO \`user\` VALUES \('(\w|\-|\.)*','(" + db_ignore_users + ")',\""
@@ -449,12 +445,14 @@ class EygaBackup(object):
 		
 		def __mysqldump_full(self, db, db_dirpath, to_file):
 			rcmd = ("{ echo \"SET SESSION UNIQUE_CHECKS = 0;\\nSET SESSION FOREIGN_KEY_CHECKS = 0;\\n\\n\"; "
-					"{nice}mysqldump {pwd_db} " + self.__mysqldump_extra_params() + self.__params_mysqldump + " --databases " + db + "; }"
+					"{nice}mysqldump {pwd_db} " + self.__params_mysqldump + " --databases " + db + ""
+					" " + self.__config.db_dumpdiff_pipecmd + "; }"
 					"" + (" > \"" + db_dirpath + "/" + db + ".sql\"" if to_file else ""))
 			return rcmd
 		
 		def __mysqldump_diff(self, db, db_dirpath, db_dirpath_full, to_file):
-			rcmd = ("{nice}mysqldump {pwd_db} " + self.__mysqldump_extra_params() + self.__params_mysqldump + " --databases " + db + ""
+			rcmd = ("{nice}mysqldump {pwd_db} " + self.__params_mysqldump + " --databases " + db + ""
+					" " + self.__config.db_dumpdiff_pipecmd + ""
 					" | diff \"" + db_dirpath_full + "/" + db + ".sql\" -"
 					"" + (" > \"" + db_dirpath + "/" + db + ".sql.diff\"" if to_file else ""))
 			return rcmd
