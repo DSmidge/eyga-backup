@@ -123,8 +123,7 @@ class EygaBackup(object):
 			self.db_temp_dirpath_full = config.get(config_section, "db_temp_dirpath_full")
 			self.db_temp_dirpath_diff = config.get(config_section, "db_temp_dirpath_diff")
 			self.db_backup_mode       = config.get(config_section, "db_backup_mode")
-			self.db_dumpdiff_pipecmd  = config.get(config_section, "db_dumpdiff_pipecmd").replace(
-				"{self_dirpath}", os.getcwd())
+			self.db_dumpdiff_pipecmd  = config.get(config_section, "db_dumpdiff_pipecmd")
 			self.db_binlog_dirpath    = config.get(config_section, "db_binlog_dirpath")
 			self.db_binlog_rm_hours   = config.get(config_section, "db_binlog_rm_hours")
 			self.db_default_user      = config.get(config_section, "db_default_user")
@@ -435,9 +434,20 @@ class EygaBackup(object):
 					user_cmds.insert(0, "if [ -f \"" + path.backup_filepath + "\" ]; then rm \"" + path.backup_filepath + "\"; fi")
 			return user_cmds, user_cmds_gd
 		
+		def __mysqldump_extra_params(self):
+			if self.__config.db_backup_mode == "dumpdiff" and self.__config.db_diff_backup == True:
+				return "--skip-extended-insert "
+			else:
+				return ""
+		
+		def __mysqldump_pipe(self):
+			if self.__config.db_backup_mode == "dumpdiff" and self.__config.db_diff_backup == True:
+				return " | " + self.__config.db_dumpdiff_pipecmd
+			else:
+				return ""
+		
 		def __mysqldump_permissions(self, db_dirpath, db_ignore_users, to_file):
-			rcmd = ("{ mysqldump {pwd_db} " + self.__params_mysqldump + " --no-create-info --databases mysql --tables db user"
-					" " + self.__config.db_dumpdiff_pipecmd + ";"
+			rcmd = ("{ mysqldump {pwd_db} " + self.__params_mysqldump + " --no-create-info --databases mysql --tables db user;"
 					" echo \"\\nFLUSH PRIVILEGES;\"; }"
 					" | sed \"17s/^$/\\nUSE \`mysql\`;\\n/\""
 					" | grep --invert-match --extended-regexp \"^INSERT INTO \`user\` VALUES \('(\w|\-|\.)*','(" + db_ignore_users + ")',\""
@@ -446,14 +456,14 @@ class EygaBackup(object):
 		
 		def __mysqldump_full(self, db, db_dirpath, to_file):
 			rcmd = ("{ echo \"SET SESSION UNIQUE_CHECKS = 0;\\nSET SESSION FOREIGN_KEY_CHECKS = 0;\\n\\n\"; "
-					"{nice}mysqldump {pwd_db} " + self.__params_mysqldump + " --databases " + db + ""
-					" " + self.__config.db_dumpdiff_pipecmd + "; }"
+					"{nice}mysqldump {pwd_db} " + self.__mysqldump_extra_params() + self.__params_mysqldump + " --databases " + db + ""
+					"" + self.__mysqldump_pipe() + "; }"
 					"" + (" > \"" + db_dirpath + "/" + db + ".sql\"" if to_file else ""))
 			return rcmd
 		
 		def __mysqldump_diff(self, db, db_dirpath, db_dirpath_full, to_file):
-			rcmd = ("{nice}mysqldump {pwd_db} " + self.__params_mysqldump + " --databases " + db + ""
-					" " + self.__config.db_dumpdiff_pipecmd + ""
+			rcmd = ("{nice}mysqldump {pwd_db} " + self.__mysqldump_extra_params() + self.__params_mysqldump + " --databases " + db + ""
+					"" + self.__mysqldump_pipe() + ""
 					" | diff \"" + db_dirpath_full + "/" + db + ".sql\" -"
 					"" + (" > \"" + db_dirpath + "/" + db + ".sql.diff\"" if to_file else ""))
 			return rcmd
