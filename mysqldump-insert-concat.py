@@ -62,4 +62,4 @@ for line in sys.stdin.buffer:
 		buffer_bytes_count = 0
 
 stop = datetime.now()
-# print("-- Duration of mysql-insert-fix: " + str(round((stop - start).total_seconds(), 1)) + "s")
+# print("-- Duration of mysqldump-insert-concat.py: " + str(round((stop - start).total_seconds(), 1)) + "s")

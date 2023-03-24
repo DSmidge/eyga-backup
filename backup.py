@@ -123,7 +123,8 @@ class EygaBackup(object):
 			self.db_temp_dirpath_full = config.get(config_section, "db_temp_dirpath_full")
 			self.db_temp_dirpath_diff = config.get(config_section, "db_temp_dirpath_diff")
 			self.db_backup_mode       = config.get(config_section, "db_backup_mode")
-			self.db_dumpdiff_pipecmd  = config.get(config_section, "db_dumpdiff_pipecmd")
+			self.db_dumpdiff_pipecmd  = config.get(config_section, "db_dumpdiff_pipecmd").replace(
+				"{self_dirpath}", os.getcwd())
 			self.db_binlog_dirpath    = config.get(config_section, "db_binlog_dirpath")
 			self.db_binlog_rm_hours   = config.get(config_section, "db_binlog_rm_hours")
 			self.db_default_user      = config.get(config_section, "db_default_user")
@@ -141,7 +142,7 @@ class EygaBackup(object):
 			self.full_backup_weeks    = config.getint(config_section, "full_backup_weeks")
 			self.db_diff_backup       = config.getboolean(config_section, "db_diff_backup")
 			self.gd_upload_enable     = config.getboolean(config_section, "gd_upload_enable")
-		
+
 		# Read authentications form config file
 		def __authentications(self, config_filename):
 			config_filepath = self.__get_config_filepath(config_filename)
