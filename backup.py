@@ -128,7 +128,7 @@ class EygaBackup(object):
 			self.db_binlog_rm_hours   = config.get(config_section, "db_binlog_rm_hours")
 			self.db_default_user      = config.get(config_section, "db_default_user")
 			self.db_ignore            = config.get(config_section, "db_ignore").split("|")
-			self.db_ignore_users      = config.get(config_section, "db_ignore_users")
+			self.db_ignore_users      = config.get(config_section, "db_ignore_users").split("|")
 			self.db_optimize          = config.getboolean(config_section, "db_optimize")
 			self.user_root_dirpath    = config.get(config_section, "user_root_dirpath")
 			self.user_ignore          = config.get(config_section, "user_ignore").split("|")
@@ -370,15 +370,15 @@ class EygaBackup(object):
 							db_cmds_user_7z.append(self.__mysql_purge_logs())
 						if self.__info.backup_db_type == "diff" and self.__config.db_diff_backup == True:
 							db_cmds_user_7z.append(self.__mysql_backup_binlog(self.__config.db_binlog_dirpath, path.backup_filepath))
-					# Backup database permissions
+					# Backup database users and grants
 					if self.__info.backup_db_type == "full":
-						db_cmds_user_7z.append(self.__mysqldump_permissions(path.db_dirpath, self.__config.db_ignore_users, False) + ""
-								"" + self.__7z_append("mysql.sql", path.backup_filepath))
+						db_cmds_user_7z.append(self.__mysql_users_and_grants(path.db_dirpath, self.__config.db_ignore_users, False) + ""
+								"" + self.__7z_append(user, "mysql_users_and_grants.sql", path.backup_filepath))
 				for db in self.__lists.db_list_by_users[user]:
 					# Full backup with binary logs
 					if self.__config.db_backup_mode == "binlog" and self.__info.backup_db_type == "full":
 						db_cmds_user_7z.append((self.__mysqldump_full(db, path.db_dirpath, False) + ""
-								"" + self.__7z_append(db + ".sql", path.backup_filepath)))
+								"" + self.__7z_append(user, db + ".sql", path.backup_filepath)))
 					# Full backup OR force full backup on diff
 					if self.__config.db_backup_mode == "dumpdiff" and (self.__info.backup_db_type == "full" or self.__info.backup_db_type == "diff" and not os.path.isfile(path.db_dirpath_full + "/" + db + ".sql")):
 						db_cmds_user.append(self.__mysqldump_full(db, path.db_dirpath, True))
@@ -386,7 +386,7 @@ class EygaBackup(object):
 					elif self.__config.db_backup_mode == "dumpdiff" and self.__info.backup_db_type == "diff" and self.__config.db_diff_backup == True:
 						clear_tmp_dir = False
 						db_cmds_user_7z.append(self.__mysqldump_diff(db, path.db_dirpath, path.db_dirpath_full, False) + ""
-								"" + self.__7z_append(db + ".sql.diff", path.backup_filepath))
+								"" + self.__7z_append(user, db + ".sql.diff", path.backup_filepath))
 				# Archive databases
 				if (len(db_cmds_user) > 0):
 					if clear_tmp_dir == True:
@@ -446,12 +446,20 @@ class EygaBackup(object):
 			else:
 				return ""
 		
-		def __mysqldump_permissions(self, db_dirpath, db_ignore_users, to_file):
-			rcmd = ("{ mysqldump {pwd_db} " + self.__params_mysqldump + " --no-create-info --databases mysql --tables db user;"
-					" echo \"\\nFLUSH PRIVILEGES;\"; }"
-					" | sed \"17s/^$/\\nUSE \`mysql\`;\\n/\""
-					" | grep --invert-match --extended-regexp \"^INSERT INTO \`user\` VALUES \('(\w|\-|\.)*','(" + db_ignore_users + ")',\""
-					"" + (" > \"" + db_dirpath + "/mysql.sql\"" if to_file else ""))
+		def __mysql_users_and_grants(self, db_dirpath, db_ignore_users, to_file):
+			where = ""
+			if len(db_ignore_users) > 0:
+				like = "' AND User NOT LIKE '"
+				where = like.join(db_ignore_users)
+				if len(where) > 0:
+					where = " WHERE '1'='1" + like + where + "'"
+			userAtHost = "''', User, '''@''', Host, '''"
+			rcmd = ("echo \"FLUSH PRIVILEGES; "
+					"SELECT CONCAT('SHOW CREATE USER " + userAtHost + "; SHOW GRANTS FOR " + userAtHost + ";') AS cmd "
+					"FROM mysql.user" + where + ";\""
+					" | mysql {pwd_db} " + self.__params_mysql + " -N"
+					" | mysql {pwd_db} " + self.__params_mysql + " -N"
+					"" + (" > \"" + db_dirpath + "/mysql_users_and_grants.sql\"" if to_file else ""))
 			return rcmd
 		
 		def __mysqldump_full(self, db, db_dirpath, to_file):
@@ -499,8 +507,8 @@ class EygaBackup(object):
 					" > /dev/null")
 			return rcmd
 		
-		def __7z_append(self, source_name, backup_filepath):
-			rcmd = (" | {nice}7z a {pwd_7z} " + self.__params_7z + " -si" + source_name + ""
+		def __7z_append(self, source_user, source_name, backup_filepath):
+			rcmd = (" | {nice}7z a {pwd_7z} " + self.__params_7z + " -si\"" + source_user + "/" + source_name + "\""
 					" \"" + backup_filepath + "\""
 					" > /dev/null")
 			return rcmd
