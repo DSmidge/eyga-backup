@@ -76,7 +76,7 @@ class EygaBackup(object):
 			with open(self.__config.backup_dirpath + "/backup.log", "a") as log:
 				log.write("\n" + self.__info.script_runtime.replace(microsecond=0).isoformat(" "))
 			start = datetime.now()
-			subprocess.call(cmd.replace("{pwd_db}", self.__config.authentication_db).replace("{pwd_7z}", self.__config.authentication_7z), shell=True)
+			subprocess.call(cmd.replace("{pwd_db}", self.__config.authentication_db).replace("{pwd_7z}", self.__config.authentication_7z), shell=True, executable="/bin/bash")
 			stop = datetime.now()
 			with open(self.__config.backup_dirpath + "/backup.log", "a") as log:
 				log.write(", " + backup_x + " = " + str(round((stop - start).total_seconds(), 1)) + "s")
@@ -246,30 +246,28 @@ class EygaBackup(object):
 		# Database list
 		@staticmethod
 		def __db_list(db_root_dirpath, db_ignore):
-			db_list = os.listdir(db_root_dirpath)
-			# Add files to ignored list
-			for db in db_list:
-				if db[0] == "#" or os.path.isfile(db_root_dirpath + "/" + db):
-					db_ignore.append(db)
-			# Remove ignored
-			for db in db_ignore:
-				if db in db_list:
-					db_list.remove(db)
+			listdir = os.listdir(db_root_dirpath)
+			final_list = []
+			# Add to list
+			for db in listdir:
+				if os.path.isdir(db_root_dirpath + "/" + db) and db not in db_ignore:
+					final_list.append(db)
 			# Sort and return
-			db_list.sort()
-			return db_list
+			final_list.sort()
+			return final_list
 		
 		# User list
 		@staticmethod
 		def __user_list(user_root_dirpath, user_ignore):
-			user_list = os.listdir(user_root_dirpath)
-			# Remove ignored
-			for user in user_ignore:
-				if user in user_list:
-					user_list.remove(user)
+			listdir = os.listdir(user_root_dirpath)
+			final_list = []
+			# Add to list
+			for user in listdir:
+				if user not in user_ignore:
+					final_list.append(user)
 			# Sort and return
-			user_list.sort()
-			return user_list
+			final_list.sort()
+			return final_list
 		
 		# User path ignore list
 		@staticmethod
@@ -345,7 +343,7 @@ class EygaBackup(object):
 			self.__info                 = info
 			self.__lists                = lists
 			self.__params_mysql         = ""
-			self.__params_mysqldump     = "--single-transaction --routines --triggers --events --no-tablespaces --mysqld-long-query-time=300"
+			self.__params_mysqldump     = "--single-transaction --routines --triggers --events --no-tablespaces"
 			self.__params_mysqloptimize = "--silent --skip-database=mysql"
 			self.__params_7z            = "-bd -mhe=on -mf=off -mx={mx} -mmt={mmt}".format(mx=self.__config.sevenzip_mx, mmt=self.__config.sevenzip_mmt)
 		
@@ -364,12 +362,26 @@ class EygaBackup(object):
 				path.set(user, "sql", self.__info.backup_db_type, self.__info.backup_db_time)
 				# Export all databases from specific user to files
 				if user == self.__config.db_default_user:
+					# Backup binary logs
 					if self.__config.db_backup_mode == "binlog":
-						# Backup binary logs
 						if self.__info.backup_db_type == "full":
 							db_cmds_user_7z.append(self.__mysql_purge_logs())
 						if self.__info.backup_db_type == "diff" and self.__config.db_diff_backup == True:
 							db_cmds_user_7z.append(self.__mysql_backup_binlog(self.__config.db_binlog_dirpath, path.backup_filepath))
+					# Backup with mariabackup
+					elif self.__config.db_backup_mode == "mariabackup":
+						db_exclude = "" if self.__config.db_ignore == "" else "--databases-exclude=\"" + " ".join(self.__config.db_ignore) + "\" "
+						check_time = False;
+						if self.__info.backup_db_type == "full" or self.__info.backup_db_type == "diff" and not os.path.isdir(path.db_dirpath_full + "/mariadb"):
+							check_time = True
+							db_cmds_user.append(self.__mariabackup_full(db_exclude, path.db_dirpath))
+						elif self.__info.backup_db_type == "diff" and self.__config.db_diff_backup == True:
+							check_time = True
+							db_cmds_user.append(self.__mariabackup_diff(db_exclude, path.db_dirpath, path.db_dirpath_full))
+						if check_time:
+							check_file = path.db_dirpath + "/mariadb/backup-my.cnf"
+							check_cmd = "if [ -f \"" + check_file + "\" ] && [ \"$(( $(date +\"%s\") - $(stat -c \"%Y\" \"" + check_file + "\") ))\" -gt \"1800\" ]; then echo \"MariaDB backup is older than 30 minutes.\"; fi"
+							db_cmds_user.append(check_cmd)
 					# Backup database users and grants
 					if self.__info.backup_db_type == "full":
 						db_cmds_user_7z.append(self.__mysql_users_and_grants(path.db_dirpath, self.__config.db_ignore_users, False) + ""
@@ -379,18 +391,21 @@ class EygaBackup(object):
 					if self.__config.db_backup_mode == "binlog" and self.__info.backup_db_type == "full":
 						db_cmds_user_7z.append((self.__mysqldump_full(db, path.db_dirpath, False) + ""
 								"" + self.__7z_append(user, db + ".sql", path.backup_filepath)))
-					# Full backup OR force full backup on diff
-					if self.__config.db_backup_mode == "dumpdiff" and (self.__info.backup_db_type == "full" or self.__info.backup_db_type == "diff" and not os.path.isfile(path.db_dirpath_full + "/" + db + ".sql")):
-						db_cmds_user.append(self.__mysqldump_full(db, path.db_dirpath, True))
-					# Diff backup
-					elif self.__config.db_backup_mode == "dumpdiff" and self.__info.backup_db_type == "diff" and self.__config.db_diff_backup == True:
-						clear_tmp_dir = False
-						db_cmds_user_7z.append(self.__mysqldump_diff(db, path.db_dirpath, path.db_dirpath_full, False) + ""
-								"" + self.__7z_append(user, db + ".sql.diff", path.backup_filepath))
+					# Backup ofr mysqldump
+					elif self.__config.db_backup_mode == "mysqldump":
+						# Full backup OR force full backup on diff
+						if self.__info.backup_db_type == "full" or self.__info.backup_db_type == "diff" and not os.path.isfile(path.db_dirpath_full + "/" + db + ".sql"):
+							db_cmds_user.append(self.__mysqldump_full(db, path.db_dirpath, True))
+						# Diff backup
+						elif self.__info.backup_db_type == "diff" and self.__config.db_diff_backup == True:
+							clear_tmp_dir = False
+							db_cmds_user_7z.append(self.__mysqldump_diff(db, path.db_dirpath, path.db_dirpath_full, False) + ""
+									"" + self.__7z_append(user, db + ".sql.diff", path.backup_filepath))
 				# Archive databases
 				if (len(db_cmds_user) > 0):
 					if clear_tmp_dir == True:
-						db_cmds_user.insert(0, "if [ \"$(ls -A " + path.db_dirpath + ")\" ]; then rm " + path.db_dirpath + "/*; fi")
+						db_cmds_user.insert(0, "if [ -d \"" + path.db_dirpath + "\" ]; then rm \"" + path.db_dirpath + "\" -r; fi")
+						db_cmds_user.insert(1, "if [ ! -d \"" + path.db_dirpath + "\" ]; then mkdir \"" + path.db_dirpath + "\" -p; fi")
 					db_cmds_user_7z.append(self.__7z_create(path.db_temp_dirpath, user, None, path.backup_dirpath, path.backup_filepath))
 				if len(db_cmds_user_7z) > 0:
 					db_cmds_user.append("if [ -f \"" + path.backup_filepath + "\" ]; then rm \"" + path.backup_filepath + "\"; fi")
@@ -435,16 +450,16 @@ class EygaBackup(object):
 			return user_cmds, user_cmds_gd
 		
 		def __mysqldump_extra_params(self):
-			if self.__config.db_backup_mode == "dumpdiff" and self.__config.db_diff_backup == True:
-				return "--skip-extended-insert "
-			else:
-				return ""
+			params = "$(if [[ `mysql --version` == *\"MariaDB\"* ]]; then echo \"--skip-log-queries\"; else echo \"--mysqld-long-query-time=300\"; fi) "
+			if self.__config.db_backup_mode == "mysqldump" and self.__config.db_diff_backup == True:
+				params += "--skip-extended-insert "
+			return params
 		
 		def __mysqldump_pipe(self):
-			if self.__config.db_backup_mode == "dumpdiff" and self.__config.db_diff_backup == True:
-				return " | " + self.__config.db_dumpdiff_pipecmd
-			else:
-				return ""
+			pipe = ""
+			if self.__config.db_backup_mode == "mysqldump" and self.__config.db_diff_backup == True:
+				pipe += " | " + self.__config.db_dumpdiff_pipecmd
+			return pipe
 		
 		def __mysql_users_and_grants(self, db_dirpath, db_ignore_users, to_file):
 			where = ""
@@ -474,6 +489,17 @@ class EygaBackup(object):
 					"" + self.__mysqldump_pipe() + ""
 					" | diff \"" + db_dirpath_full + "/" + db + ".sql\" -"
 					"" + (" > \"" + db_dirpath + "/" + db + ".sql.diff\"" if to_file else ""))
+			return rcmd
+		
+		def __mariabackup_full(self, db_exclude, db_dirpath):
+			rcmd = ("{nice}mariabackup {pwd_db} --backup " + db_exclude + ""
+					"--target-dir=\"" + db_dirpath + "/mariadb\" &> /dev/null")
+			return rcmd
+		
+		def __mariabackup_diff(self, db_exclude, db_dirpath, db_dirpath_full):
+			rcmd = ("{nice}mariabackup {pwd_db} --backup " + db_exclude + ""
+					"--target-dir=\"" + db_dirpath + "/mariadb\" "
+					"--incremental-basedir=\"" + db_dirpath_full + "/mariadb\" &> /dev/null")
 			return rcmd
 		
 		def __mysql_purge_logs(self):
@@ -529,8 +555,9 @@ class EygaBackup(object):
 if __name__ == "__main__":
 	if len(sys.argv) == 1:
 		EygaBackup(datetime.now()).execute()
-	else:
-		# Debug
+	elif sys.argv[1] == "test":
+		EygaBackup(datetime.now()).debug()
+	elif sys.argv[1] == "debug":
 		print("# List of backup.py commands")
 		script_runtime = datetime(2022, 12, 31, 1)
 		EygaBackup(script_runtime).debug()

@@ -11,17 +11,25 @@ copy /y test\settings_binlog.cfg settings.cfg
 rem C:\Python27\python backup.py debug > test\test_binlog_py27.txt
 python backup.py debug > test\test_binlog_py3x.txt
 
-copy /y test\settings_dumpdiff.cfg settings.cfg
-rem C:\Python27\python backup.py debug > test\test_dumpdiff_py27.txt
-python backup.py debug > test\test_dumpdiff_py3x.txt
+copy /y test\settings_mysqldump.cfg settings.cfg
+rem C:\Python27\python backup.py debug > test\test_mysqldump_py27.txt
+python backup.py debug > test\test_mysqldump_py3x.txt
+
+copy /y test\settings_mariabackup.cfg settings.cfg
+rem C:\Python27\python backup.py debug > test\test_mariabackup_py27.txt
+python backup.py debug > test\test_mariabackup_py3x.txt
 
 copy /y test\settings_binlog_nodbdiff.cfg settings.cfg
 rem C:\Python27\python backup.py debug > test\test_binlog_nodbdiff_py27.txt
 python backup.py debug > test\test_binlog_nodbdiff_py3x.txt
 
-copy /y test\settings_dumpdiff_nodbdiff.cfg settings.cfg
-rem C:\Python27\python backup.py debug > test\test_dumpdiff_nodbdiff_py27.txt
-python backup.py debug > test\test_dumpdiff_nodbdiff_py3x.txt
+copy /y test\settings_mysqldump_nodbdiff.cfg settings.cfg
+rem C:\Python27\python backup.py debug > test\test_mysqldump_nodbdiff_py27.txt
+python backup.py debug > test\test_mysqldump_nodbdiff_py3x.txt
+
+copy /y test\settings_mariabackup_nodbdiff.cfg settings.cfg
+rem C:\Python27\python backup.py debug > test\test_mariabackup_nodbdiff_py27.txt
+python backup.py debug > test\test_mariabackup_nodbdiff_py3x.txt
 
 cd test
 pause
