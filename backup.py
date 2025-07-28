@@ -15,7 +15,7 @@ import sys
 from datetime import datetime, timedelta
 
 
-# Main class
+# Backup class
 class EygaBackup(object):
 	# pylint: disable=anomalous-backslash-in-string
 
@@ -380,18 +380,18 @@ class EygaBackup(object):
 							db_cmds_user.append(self.__mariabackup_diff(db_exclude, path.db_dirpath, path.db_dirpath_full))
 						if check_time:
 							check_file = path.db_dirpath + "/mariadb/backup-my.cnf"
-							check_cmd = "if [ -f \"" + check_file + "\" ] && [ \"$(( $(date +\"%s\") - $(stat -c \"%Y\" \"" + check_file + "\") ))\" -gt \"1800\" ]; then echo \"MariaDB backup is older than 30 minutes.\"; fi"
+							check_cmd = "if [ ! -f \"" + check_file + "\" ] || [ \"$(( $(date +\"%s\") - $(stat -c \"%Y\" \"" + check_file + "\") ))\" -gt \"1800\" ]; then echo \"MariaDB backup is missing or is older than 30 minutes.\"; fi"
 							db_cmds_user.append(check_cmd)
 					# Backup database users and grants
 					if self.__info.backup_db_type == "full":
 						db_cmds_user_7z.append(self.__mysql_users_and_grants(path.db_dirpath, self.__config.db_ignore_users, False) + ""
-								"" + self.__7z_append(user, "mysql_users_and_grants.sql", path.backup_filepath))
+								"" + self.__7z_append(user, "mysql_users_and_grants.sql", path.backup_dirpath, path.backup_filepath))
 				for db in self.__lists.db_list_by_users[user]:
 					# Full backup with binary logs
 					if self.__config.db_backup_mode == "binlog" and self.__info.backup_db_type == "full":
 						db_cmds_user_7z.append((self.__mysqldump_full(db, path.db_dirpath, False) + ""
-								"" + self.__7z_append(user, db + ".sql", path.backup_filepath)))
-					# Backup ofr mysqldump
+								"" + self.__7z_append(user, db + ".sql", path.backup_dirpath, path.backup_filepath)))
+					# Backup with mysqldump
 					elif self.__config.db_backup_mode == "mysqldump":
 						# Full backup OR force full backup on diff
 						if self.__info.backup_db_type == "full" or self.__info.backup_db_type == "diff" and not os.path.isfile(path.db_dirpath_full + "/" + db + ".sql"):
@@ -400,7 +400,7 @@ class EygaBackup(object):
 						elif self.__info.backup_db_type == "diff" and self.__config.db_diff_backup == True:
 							clear_tmp_dir = False
 							db_cmds_user_7z.append(self.__mysqldump_diff(db, path.db_dirpath, path.db_dirpath_full, False) + ""
-									"" + self.__7z_append(user, db + ".sql.diff", path.backup_filepath))
+									"" + self.__7z_append(user, db + ".sql.diff", path.backup_dirpath, path.backup_filepath))
 				# Archive databases
 				if (len(db_cmds_user) > 0):
 					if clear_tmp_dir == True:
@@ -533,7 +533,9 @@ class EygaBackup(object):
 					" > /dev/null")
 			return rcmd
 		
-		def __7z_append(self, source_user, source_name, backup_filepath):
+		def __7z_append(self, source_user, source_name, backup_dirpath, backup_filepath):
+			if not os.path.isdir(backup_dirpath):
+				os.makedirs(backup_dirpath, mode=755)
 			rcmd = (" | {nice}7z a {pwd_7z} " + self.__params_7z + " -si\"" + source_user + "/" + source_name + "\""
 					" \"" + backup_filepath + "\""
 					" > /dev/null")
