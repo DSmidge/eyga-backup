@@ -65,11 +65,8 @@ nice -n 15 7z u {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup
 
 
 # db = diff, user = None, 2023-01-01 02:00:00
-if [ -d "D:/Code/Eyga-Backup/test/backup-tmp/server" ]; then rm "D:/Code/Eyga-Backup/test/backup-tmp/server" -r; fi
-if [ ! -d "D:/Code/Eyga-Backup/test/backup-tmp/server" ]; then mkdir "D:/Code/Eyga-Backup/test/backup-tmp/server" -p; fi
-{ echo "SET SESSION UNIQUE_CHECKS = 0;\nSET SESSION FOREIGN_KEY_CHECKS = 0;\n\n"; nice -n 15 mysqldump {pwd_db} $(if [[ `mysql --version` == *"MariaDB"* ]]; then echo "--skip-log-queries"; else echo "--mysqld-long-query-time=300"; fi) --skip-extended-insert --single-transaction --routines --triggers --events --no-tablespaces --databases sys_db2 | python C:/Code/Eyga-Backup/mysqldump-insert-concat.py; } > "D:/Code/Eyga-Backup/test/backup-tmp/server/sys_db2.sql"
 if [ -f "D:/Code/Eyga-Backup/test/backup/server/server-sql-diff-h01.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/server/server-sql-diff-h01.7z"; fi
-nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup/test/backup/7zip-tmp" "D:/Code/Eyga-Backup/test/backup/server/server-sql-diff-h01.7z" "D:/Code/Eyga-Backup/test/backup-tmp/server" > /dev/null
+nice -n 15 mysqldump {pwd_db} $(if [[ `mysql --version` == *"MariaDB"* ]]; then echo "--skip-log-queries"; else echo "--mysqld-long-query-time=300"; fi) --skip-extended-insert --single-transaction --routines --triggers --events --no-tablespaces --databases sys_db2 | python C:/Code/Eyga-Backup/mysqldump-insert-concat.py | diff "D:/Code/Eyga-Backup/test/backup/tmp/server/sys_db2.sql" - | nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -si"server/sys_db2.sql.diff" "D:/Code/Eyga-Backup/test/backup/server/server-sql-diff-h01.7z" > /dev/null
 if [ -f "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-diff-h01.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-diff-h01.7z"; fi
 nice -n 15 mysqldump {pwd_db} $(if [[ `mysql --version` == *"MariaDB"* ]]; then echo "--skip-log-queries"; else echo "--mysqld-long-query-time=300"; fi) --skip-extended-insert --single-transaction --routines --triggers --events --no-tablespaces --databases user1_db1 | python C:/Code/Eyga-Backup/mysqldump-insert-concat.py | diff "D:/Code/Eyga-Backup/test/backup/tmp/user1/user1_db1.sql" - | nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -si"user1/user1_db1.sql.diff" "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-diff-h01.7z" > /dev/null
 

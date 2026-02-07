@@ -367,16 +367,16 @@ class EygaBackup(object):
 					if self.__config.db_backup_mode == "binlog":
 						if self.__info.backup_db_type == "full":
 							db_cmds_user_7z.append(self.__mysql_purge_logs())
-						if self.__info.backup_db_type == "diff" and self.__config.db_diff_backup == True:
+						elif self.__info.backup_db_type == "diff" and self.__config.db_diff_backup == True:
 							db_cmds_user_7z.append(self.__mysql_backup_binlog(self.__config.db_binlog_dirpath, path.backup_filepath))
 					# Backup with mariabackup
 					elif self.__config.db_backup_mode == "mariabackup":
 						db_exclude = "" if self.__config.db_ignore == "" else "--databases-exclude=\"" + " ".join(self.__config.db_ignore) + "\" "
 						check_time = False;
-						if self.__info.backup_db_type == "full" or self.__info.backup_db_type == "diff" and not os.path.isdir(path.db_dirpath_full + "/mariadb"):
+						if self.__info.backup_db_type == "full":
 							check_time = True
 							db_cmds_user.append(self.__mariabackup_full(db_exclude, path.db_dirpath))
-						elif self.__info.backup_db_type == "diff" and self.__config.db_diff_backup == True:
+						elif self.__info.backup_db_type == "diff" and self.__config.db_diff_backup == True and os.path.isdir(path.db_dirpath_full + "/mariadb"):
 							check_time = True
 							db_cmds_user.append(self.__mariabackup_diff(db_exclude, path.db_dirpath, path.db_dirpath_full))
 						if check_time:
@@ -395,10 +395,10 @@ class EygaBackup(object):
 					# Backup with mysqldump
 					elif self.__config.db_backup_mode == "mysqldump":
 						# Full backup OR force full backup on diff
-						if self.__info.backup_db_type == "full" or self.__info.backup_db_type == "diff" and not os.path.isfile(path.db_dirpath_full + "/" + db + ".sql"):
+						if self.__info.backup_db_type == "full":
 							db_cmds_user.append(self.__mysqldump_full(db, path.db_dirpath, True))
 						# Diff backup
-						elif self.__info.backup_db_type == "diff" and self.__config.db_diff_backup == True:
+						elif self.__info.backup_db_type == "diff" and self.__config.db_diff_backup == True and os.path.isfile(path.db_dirpath_full + "/" + db + ".sql"):
 							clear_tmp_dir = False
 							db_cmds_user_7z.append(self.__mysqldump_diff(db, path.db_dirpath, path.db_dirpath_full, False) + ""
 									"" + self.__7z_append(user, db + ".sql.diff", path.backup_dirpath, path.backup_filepath))
