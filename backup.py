@@ -160,11 +160,11 @@ class EygaBackup(object):
 			self.script_runtime = script_runtime
 			self.__config = config
 			if self.__config.split_day_by_hour > 23:
-				self.__config.__split_day_by_hour = 0
+				self.__config.split_day_by_hour = 0
 			if self.__config.split_week_by_day > 6:
-				self.__config.__split_week_by_day = 0
+				self.__config.split_week_by_day = 0
 			if self.__config.full_backup_weeks < 2:
-				self.__config.__full_backup_weeks = 2
+				self.__config.full_backup_weeks = 2
 			self.__set_shifted_time()
 		
 		# Shift time to hour of full backup
@@ -177,18 +177,14 @@ class EygaBackup(object):
 			# Fix weekday
 			week_hours = 24 * self.__config.split_week_by_day + self.__config.split_day_by_hour
 			shifted_weekday = (script_runtime - timedelta(hours=week_hours)).weekday()
-			# Calculate week number
-			week_start_1 = (datetime(2014, 12, 28) + timedelta(hours=day_hours)) # Corrections must be on Monday
-			week_start_2 = (script_runtime - timedelta(hours=week_hours))
-			shifted_week = int(((week_start_2 - week_start_1).days / 7) % self.__config.full_backup_weeks)
 			# Set attributes
-			self.__set_backup_info(shifted_hour, shifted_weekday, shifted_week)
+			self.__set_backup_info(shifted_hour, shifted_weekday)
 		
 		# Define type of backup (full or diff)
-		def __set_backup_info(self, shifted_hour, shifted_weekday, shifted_week):
+		def __set_backup_info(self, shifted_hour, shifted_weekday):
 			hour = "h" + ("0" + str(shifted_hour))[-2:]
 			day = "d" + str(shifted_weekday)
-			week = "w" + str(shifted_week + 1)
+			week = "w1"
 			# Set backup type and time attributes
 			if shifted_weekday == 0 and shifted_hour == 0:
 				# Weekly backup (for last X weeks)
@@ -324,7 +320,8 @@ class EygaBackup(object):
 				backup_dirpath = self.__config.backup_dirpath + "/" + user
 				if not os.path.isdir(backup_dirpath):
 					os.makedirs(backup_dirpath, mode=755)
-				backup_filename = user + "-" + backup_x + "-" + backup_x_type + "-" + self.__info.backup_time + ".7z"
+				backup_filenameN = user + "-" + backup_x + "-" + backup_x_type + "-{num}.7z"
+				backup_filename = backup_filenameN.replace("{num}", self.__info.backup_time)
 				# Create a place for storing SQL files
 				if backup_x == "sql" and not os.path.isdir(db_dirpath):
 					os.makedirs(db_dirpath, mode=755)
@@ -332,6 +329,7 @@ class EygaBackup(object):
 				self.backup_dirpath     = backup_dirpath
 				self.backup_filename    = backup_filename
 				self.backup_filepath    = backup_dirpath + "/" + backup_filename
+				self.backup_filepathN   = backup_dirpath + "/" + backup_filenameN
 				self.db_temp_dirpath    = db_temp_dirpath
 				self.db_dirpath         = db_dirpath
 				self.db_dirpath_full    = db_dirpath_full
@@ -360,6 +358,9 @@ class EygaBackup(object):
 				db_cmds_user_7z = []
 				clear_tmp_dir = True
 				path.set(user, "sql", self.__info.backup_db_type, self.__info.backup_db_time)
+				# Rotate backup files if needed
+				# if self.__info.backup_db_type == "full":
+				# 	db_cmds_user_7z.append(self.__rotate_db_backups(path.backup_filepathN))
 				# Export all databases from specific user to files
 				if user == self.__config.db_default_user:
 					# Backup binary logs
@@ -433,6 +434,9 @@ class EygaBackup(object):
 			for user in self.__lists.user_list:
 				path.set(user, "user", self.__info.backup_user_type, self.__info.backup_user_time)
 				user_path_ignore = self.__lists.user_path_ignore_list.get(user)
+				# Rotate backup files if needed
+				# if self.__info.backup_user_type == "full":
+				# 	user_cmds.append(self.__rotate_db_backups(path.backup_filepathN))
 				# Full backup
 				if self.__info.backup_user_type == "full":
 					user_cmds.append(self.__7z_create(self.__config.user_root_dirpath, user, user_path_ignore, path.backup_dirpath, path.backup_filepath))
@@ -448,7 +452,7 @@ class EygaBackup(object):
 				if (len(user_cmds) > 0):
 					user_cmds.insert(0, "if [ -f \"" + path.backup_filepath + "\" ]; then rm \"" + path.backup_filepath + "\"; fi")
 			return user_cmds, user_cmds_gd
-		
+
 		def __mysqldump_extra_params(self):
 			params = "$(if [[ `mysql --version` == *\"MariaDB\"* ]]; then echo \"--skip-log-queries\"; else echo \"--mysqld-long-query-time=300\"; fi) "
 			if self.__config.db_backup_mode == "mysqldump" and self.__config.db_diff_backup == True:
@@ -522,6 +526,17 @@ class EygaBackup(object):
 		def __mysqloptimize(self):
 			rcmd = ("{nice}mysqloptimize {pwd_db} " + self.__params_mysqloptimize + " --all-databases"
 					" > \"" + self.__config.backup_dirpath + "/mysqloptimize.log\"")
+			return rcmd
+		
+		def __rotate_db_backups(self, backup_filepathN):
+			file0 = backup_filepathN.replace("{num}", "w1")
+			rcmd = ("if [ -f \"" + file0 + "\" ] && [ $(date -r \"" + file0 + "\" +%G%V) -ne $(date +%G%V) ]; then\n")
+			for num in range(self.__config.full_backup_weeks, 0, -1):
+				file1 = backup_filepathN.replace("{num}", "w" + str(num))
+				file2 = backup_filepathN.replace("{num}", "w" + str(num + 1))
+				cmd = "rm \"" + file1 + "\"" if num == self.__config.full_backup_weeks else "mv \"" + file1 + "\" \"" + file2 + "\""
+				rcmd += ("    if [ -f \"" + file1 + "\" ]; then " + cmd + "; fi\n")
+			rcmd += ("fi")
 			return rcmd
 		
 		def __7z_create(self, source_dirpath, source_name, extra_params, backup_dirpath, backup_filepath):

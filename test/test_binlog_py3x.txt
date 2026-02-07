@@ -2,15 +2,15 @@
 
 
 # db = full, user = full, 2022-12-31 01:00:00
-if [ -f "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-w2.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-w2.7z"; fi
+if [ -f "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-w1.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-w1.7z"; fi
 echo "PURGE BINARY LOGS BEFORE '2022-12-30T00:00:00';" | mysql {pwd_db} 
-echo "FLUSH PRIVILEGES; SELECT CONCAT('SHOW CREATE USER ''', User, '''@''', Host, '''; SHOW GRANTS FOR ''', User, '''@''', Host, ''';') AS cmd FROM mysql.user WHERE '1'='1' AND User NOT LIKE 'root' AND User NOT LIKE 'debian-sys-maint' AND User NOT LIKE 'mysql.%' AND User NOT LIKE 'mariadb.sys';" | mysql {pwd_db}  -N | mysql {pwd_db}  -N | nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -si"server/mysql_users_and_grants.sql" "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-w2.7z" > /dev/null
-{ echo "SET SESSION UNIQUE_CHECKS = 0;\nSET SESSION FOREIGN_KEY_CHECKS = 0;\n\n"; nice -n 15 mysqldump {pwd_db} $(if [[ `mysql --version` == *"MariaDB"* ]]; then echo "--skip-log-queries"; else echo "--mysqld-long-query-time=300"; fi) --single-transaction --routines --triggers --events --no-tablespaces --databases sys_db2; } | nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -si"server/sys_db2.sql" "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-w2.7z" > /dev/null
-if [ -f "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-w2.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-w2.7z"; fi
-{ echo "SET SESSION UNIQUE_CHECKS = 0;\nSET SESSION FOREIGN_KEY_CHECKS = 0;\n\n"; nice -n 15 mysqldump {pwd_db} $(if [[ `mysql --version` == *"MariaDB"* ]]; then echo "--skip-log-queries"; else echo "--mysqld-long-query-time=300"; fi) --single-transaction --routines --triggers --events --no-tablespaces --databases user1_db1; } | nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -si"user1/user1_db1.sql" "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-w2.7z" > /dev/null
+echo "FLUSH PRIVILEGES; SELECT CONCAT('SHOW CREATE USER ''', User, '''@''', Host, '''; SHOW GRANTS FOR ''', User, '''@''', Host, ''';') AS cmd FROM mysql.user WHERE '1'='1' AND User NOT LIKE 'root' AND User NOT LIKE 'debian-sys-maint' AND User NOT LIKE 'mysql.%' AND User NOT LIKE 'mariadb.sys';" | mysql {pwd_db}  -N | mysql {pwd_db}  -N | nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -si"server/mysql_users_and_grants.sql" "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-w1.7z" > /dev/null
+{ echo "SET SESSION UNIQUE_CHECKS = 0;\nSET SESSION FOREIGN_KEY_CHECKS = 0;\n\n"; nice -n 15 mysqldump {pwd_db} $(if [[ `mysql --version` == *"MariaDB"* ]]; then echo "--skip-log-queries"; else echo "--mysqld-long-query-time=300"; fi) --single-transaction --routines --triggers --events --no-tablespaces --databases sys_db2; } | nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -si"server/sys_db2.sql" "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-w1.7z" > /dev/null
+if [ -f "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-w1.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-w1.7z"; fi
+{ echo "SET SESSION UNIQUE_CHECKS = 0;\nSET SESSION FOREIGN_KEY_CHECKS = 0;\n\n"; nice -n 15 mysqldump {pwd_db} $(if [[ `mysql --version` == *"MariaDB"* ]]; then echo "--skip-log-queries"; else echo "--mysqld-long-query-time=300"; fi) --single-transaction --routines --triggers --events --no-tablespaces --databases user1_db1; } | nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -si"user1/user1_db1.sql" "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-w1.7z" > /dev/null
 nice -n 15 mysqloptimize {pwd_db} --silent --skip-database=mysql --all-databases > "D:/Code/Eyga-Backup/test/backup/mysqloptimize.log"
-if [ -f "D:/Code/Eyga-Backup/test/backup/user1/user1-user-full-w2.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/user1/user1-user-full-w2.7z"; fi
-nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup/test/backup/7zip-tmp" -x\!"user1/relative_path_filter1" -x\!"user1/relative_path_filter2;user2:relative_path_filter3" "D:/Code/Eyga-Backup/test/backup/user1/user1-user-full-w2.7z" "D:/Code/Eyga-Backup/test/user/user1" > /dev/null
+if [ -f "D:/Code/Eyga-Backup/test/backup/user1/user1-user-full-w1.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/user1/user1-user-full-w1.7z"; fi
+nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup/test/backup/7zip-tmp" -x\!"user1/relative_path_filter1" -x\!"user1/relative_path_filter2;user2:relative_path_filter3" "D:/Code/Eyga-Backup/test/backup/user1/user1-user-full-w1.7z" "D:/Code/Eyga-Backup/test/user/user1" > /dev/null
 
 
 # db = full, user = diff, 2023-01-01 01:00:00
@@ -21,7 +21,7 @@ echo "FLUSH PRIVILEGES; SELECT CONCAT('SHOW CREATE USER ''', User, '''@''', Host
 if [ -f "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-d1.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-d1.7z"; fi
 { echo "SET SESSION UNIQUE_CHECKS = 0;\nSET SESSION FOREIGN_KEY_CHECKS = 0;\n\n"; nice -n 15 mysqldump {pwd_db} $(if [[ `mysql --version` == *"MariaDB"* ]]; then echo "--skip-log-queries"; else echo "--mysqld-long-query-time=300"; fi) --single-transaction --routines --triggers --events --no-tablespaces --databases user1_db1; } | nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -si"user1/user1_db1.sql" "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-d1.7z" > /dev/null
 if [ -f "D:/Code/Eyga-Backup/test/backup/user1/user1-user-diff-d1.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/user1/user1-user-diff-d1.7z"; fi
-nice -n 15 7z u {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup/test/backup/7zip-tmp" -x\!"user1/relative_path_filter1" -x\!"user1/relative_path_filter2;user2:relative_path_filter3" "D:/Code/Eyga-Backup/test/backup/user1/user1-user-full-w2.7z" "D:/Code/Eyga-Backup/test/user/user1" -u- -up0q3r2x2y2z0w2\!"D:/Code/Eyga-Backup/test/backup/user1/user1-user-diff-d1.7z" > /dev/null
+nice -n 15 7z u {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup/test/backup/7zip-tmp" -x\!"user1/relative_path_filter1" -x\!"user1/relative_path_filter2;user2:relative_path_filter3" "D:/Code/Eyga-Backup/test/backup/user1/user1-user-full-w1.7z" "D:/Code/Eyga-Backup/test/user/user1" -u- -up0q3r2x2y2z0w2\!"D:/Code/Eyga-Backup/test/backup/user1/user1-user-diff-d1.7z" > /dev/null
 
 
 # db = diff, user = None, 2023-01-01 02:00:00
@@ -36,7 +36,7 @@ done
 
 # Test shifting time
 runtume: 2023-01-02 00:00:00, time: h23, db_type: diff, db_time: d1, user_type: None, user_time: None
-runtume: 2023-01-02 01:00:00, time: d2, db_type: full, db_time: None, user_type: diff, user_time: w2
+runtume: 2023-01-02 01:00:00, time: d2, db_type: full, db_time: None, user_type: diff, user_time: w1
 runtume: 2023-01-02 02:00:00, time: h01, db_type: diff, db_time: d2, user_type: None, user_time: None
 runtume: 2023-01-02 03:00:00, time: h02, db_type: diff, db_time: d2, user_type: None, user_time: None
 runtume: 2023-01-02 04:00:00, time: h03, db_type: diff, db_time: d2, user_type: None, user_time: None
@@ -59,7 +59,7 @@ runtume: 2023-01-02 20:00:00, time: h19, db_type: diff, db_time: d2, user_type: 
 runtume: 2023-01-02 21:00:00, time: h20, db_type: diff, db_time: d2, user_type: None, user_time: None
 runtume: 2023-01-02 22:00:00, time: h21, db_type: diff, db_time: d2, user_type: None, user_time: None
 runtume: 2023-01-03 00:00:00, time: h23, db_type: diff, db_time: d2, user_type: None, user_time: None
-runtume: 2023-01-03 01:00:00, time: d3, db_type: full, db_time: None, user_type: diff, user_time: w2
+runtume: 2023-01-03 01:00:00, time: d3, db_type: full, db_time: None, user_type: diff, user_time: w1
 runtume: 2023-01-03 02:00:00, time: h01, db_type: diff, db_time: d3, user_type: None, user_time: None
 runtume: 2023-01-03 03:00:00, time: h02, db_type: diff, db_time: d3, user_type: None, user_time: None
 runtume: 2023-01-03 04:00:00, time: h03, db_type: diff, db_time: d3, user_type: None, user_time: None
@@ -82,7 +82,7 @@ runtume: 2023-01-03 20:00:00, time: h19, db_type: diff, db_time: d3, user_type: 
 runtume: 2023-01-03 21:00:00, time: h20, db_type: diff, db_time: d3, user_type: None, user_time: None
 runtume: 2023-01-03 22:00:00, time: h21, db_type: diff, db_time: d3, user_type: None, user_time: None
 runtume: 2023-01-04 00:00:00, time: h23, db_type: diff, db_time: d3, user_type: None, user_time: None
-runtume: 2023-01-04 01:00:00, time: d4, db_type: full, db_time: None, user_type: diff, user_time: w2
+runtume: 2023-01-04 01:00:00, time: d4, db_type: full, db_time: None, user_type: diff, user_time: w1
 runtume: 2023-01-04 02:00:00, time: h01, db_type: diff, db_time: d4, user_type: None, user_time: None
 runtume: 2023-01-04 03:00:00, time: h02, db_type: diff, db_time: d4, user_type: None, user_time: None
 runtume: 2023-01-04 04:00:00, time: h03, db_type: diff, db_time: d4, user_type: None, user_time: None
@@ -105,7 +105,7 @@ runtume: 2023-01-04 20:00:00, time: h19, db_type: diff, db_time: d4, user_type: 
 runtume: 2023-01-04 21:00:00, time: h20, db_type: diff, db_time: d4, user_type: None, user_time: None
 runtume: 2023-01-04 22:00:00, time: h21, db_type: diff, db_time: d4, user_type: None, user_time: None
 runtume: 2023-01-05 00:00:00, time: h23, db_type: diff, db_time: d4, user_type: None, user_time: None
-runtume: 2023-01-05 01:00:00, time: d5, db_type: full, db_time: None, user_type: diff, user_time: w2
+runtume: 2023-01-05 01:00:00, time: d5, db_type: full, db_time: None, user_type: diff, user_time: w1
 runtume: 2023-01-05 02:00:00, time: h01, db_type: diff, db_time: d5, user_type: None, user_time: None
 runtume: 2023-01-05 03:00:00, time: h02, db_type: diff, db_time: d5, user_type: None, user_time: None
 runtume: 2023-01-05 04:00:00, time: h03, db_type: diff, db_time: d5, user_type: None, user_time: None
@@ -128,7 +128,7 @@ runtume: 2023-01-05 20:00:00, time: h19, db_type: diff, db_time: d5, user_type: 
 runtume: 2023-01-05 21:00:00, time: h20, db_type: diff, db_time: d5, user_type: None, user_time: None
 runtume: 2023-01-05 22:00:00, time: h21, db_type: diff, db_time: d5, user_type: None, user_time: None
 runtume: 2023-01-06 00:00:00, time: h23, db_type: diff, db_time: d5, user_type: None, user_time: None
-runtume: 2023-01-06 01:00:00, time: d6, db_type: full, db_time: None, user_type: diff, user_time: w2
+runtume: 2023-01-06 01:00:00, time: d6, db_type: full, db_time: None, user_type: diff, user_time: w1
 runtume: 2023-01-06 02:00:00, time: h01, db_type: diff, db_time: d6, user_type: None, user_time: None
 runtume: 2023-01-06 03:00:00, time: h02, db_type: diff, db_time: d6, user_type: None, user_time: None
 runtume: 2023-01-06 04:00:00, time: h03, db_type: diff, db_time: d6, user_type: None, user_time: None
@@ -151,30 +151,30 @@ runtume: 2023-01-06 20:00:00, time: h19, db_type: diff, db_time: d6, user_type: 
 runtume: 2023-01-06 21:00:00, time: h20, db_type: diff, db_time: d6, user_type: None, user_time: None
 runtume: 2023-01-06 22:00:00, time: h21, db_type: diff, db_time: d6, user_type: None, user_time: None
 runtume: 2023-01-07 00:00:00, time: h23, db_type: diff, db_time: d6, user_type: None, user_time: None
-runtume: 2023-01-07 01:00:00, time: w3, db_type: full, db_time: None, user_type: full, user_time: None
-runtume: 2023-01-07 02:00:00, time: h01, db_type: diff, db_time: w3, user_type: None, user_time: None
-runtume: 2023-01-07 03:00:00, time: h02, db_type: diff, db_time: w3, user_type: None, user_time: None
-runtume: 2023-01-07 04:00:00, time: h03, db_type: diff, db_time: w3, user_type: None, user_time: None
-runtume: 2023-01-07 05:00:00, time: h04, db_type: diff, db_time: w3, user_type: None, user_time: None
-runtume: 2023-01-07 06:00:00, time: h05, db_type: diff, db_time: w3, user_type: None, user_time: None
-runtume: 2023-01-07 07:00:00, time: h06, db_type: diff, db_time: w3, user_type: None, user_time: None
-runtume: 2023-01-07 08:00:00, time: h07, db_type: diff, db_time: w3, user_type: None, user_time: None
-runtume: 2023-01-07 09:00:00, time: h08, db_type: diff, db_time: w3, user_type: None, user_time: None
-runtume: 2023-01-07 10:00:00, time: h09, db_type: diff, db_time: w3, user_type: None, user_time: None
-runtume: 2023-01-07 11:00:00, time: h10, db_type: diff, db_time: w3, user_type: None, user_time: None
-runtume: 2023-01-07 12:00:00, time: h11, db_type: diff, db_time: w3, user_type: None, user_time: None
-runtume: 2023-01-07 13:00:00, time: h12, db_type: diff, db_time: w3, user_type: None, user_time: None
-runtume: 2023-01-07 14:00:00, time: h13, db_type: diff, db_time: w3, user_type: None, user_time: None
-runtume: 2023-01-07 15:00:00, time: h14, db_type: diff, db_time: w3, user_type: None, user_time: None
-runtume: 2023-01-07 16:00:00, time: h15, db_type: diff, db_time: w3, user_type: None, user_time: None
-runtume: 2023-01-07 17:00:00, time: h16, db_type: diff, db_time: w3, user_type: None, user_time: None
-runtume: 2023-01-07 18:00:00, time: h17, db_type: diff, db_time: w3, user_type: None, user_time: None
-runtume: 2023-01-07 19:00:00, time: h18, db_type: diff, db_time: w3, user_type: None, user_time: None
-runtume: 2023-01-07 20:00:00, time: h19, db_type: diff, db_time: w3, user_type: None, user_time: None
-runtume: 2023-01-07 21:00:00, time: h20, db_type: diff, db_time: w3, user_type: None, user_time: None
-runtume: 2023-01-07 22:00:00, time: h21, db_type: diff, db_time: w3, user_type: None, user_time: None
-runtume: 2023-01-08 00:00:00, time: h23, db_type: diff, db_time: w3, user_type: None, user_time: None
-runtume: 2023-01-08 01:00:00, time: d1, db_type: full, db_time: None, user_type: diff, user_time: w3
+runtume: 2023-01-07 01:00:00, time: w1, db_type: full, db_time: None, user_type: full, user_time: None
+runtume: 2023-01-07 02:00:00, time: h01, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-07 03:00:00, time: h02, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-07 04:00:00, time: h03, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-07 05:00:00, time: h04, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-07 06:00:00, time: h05, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-07 07:00:00, time: h06, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-07 08:00:00, time: h07, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-07 09:00:00, time: h08, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-07 10:00:00, time: h09, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-07 11:00:00, time: h10, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-07 12:00:00, time: h11, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-07 13:00:00, time: h12, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-07 14:00:00, time: h13, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-07 15:00:00, time: h14, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-07 16:00:00, time: h15, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-07 17:00:00, time: h16, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-07 18:00:00, time: h17, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-07 19:00:00, time: h18, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-07 20:00:00, time: h19, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-07 21:00:00, time: h20, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-07 22:00:00, time: h21, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-08 00:00:00, time: h23, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-08 01:00:00, time: d1, db_type: full, db_time: None, user_type: diff, user_time: w1
 runtume: 2023-01-08 02:00:00, time: h01, db_type: diff, db_time: d1, user_type: None, user_time: None
 runtume: 2023-01-08 03:00:00, time: h02, db_type: diff, db_time: d1, user_type: None, user_time: None
 runtume: 2023-01-08 04:00:00, time: h03, db_type: diff, db_time: d1, user_type: None, user_time: None
@@ -197,7 +197,7 @@ runtume: 2023-01-08 20:00:00, time: h19, db_type: diff, db_time: d1, user_type: 
 runtume: 2023-01-08 21:00:00, time: h20, db_type: diff, db_time: d1, user_type: None, user_time: None
 runtume: 2023-01-08 22:00:00, time: h21, db_type: diff, db_time: d1, user_type: None, user_time: None
 runtume: 2023-01-09 00:00:00, time: h23, db_type: diff, db_time: d1, user_type: None, user_time: None
-runtume: 2023-01-09 01:00:00, time: d2, db_type: full, db_time: None, user_type: diff, user_time: w3
+runtume: 2023-01-09 01:00:00, time: d2, db_type: full, db_time: None, user_type: diff, user_time: w1
 runtume: 2023-01-09 02:00:00, time: h01, db_type: diff, db_time: d2, user_type: None, user_time: None
 runtume: 2023-01-09 03:00:00, time: h02, db_type: diff, db_time: d2, user_type: None, user_time: None
 runtume: 2023-01-09 04:00:00, time: h03, db_type: diff, db_time: d2, user_type: None, user_time: None
@@ -220,7 +220,7 @@ runtume: 2023-01-09 20:00:00, time: h19, db_type: diff, db_time: d2, user_type: 
 runtume: 2023-01-09 21:00:00, time: h20, db_type: diff, db_time: d2, user_type: None, user_time: None
 runtume: 2023-01-09 22:00:00, time: h21, db_type: diff, db_time: d2, user_type: None, user_time: None
 runtume: 2023-01-10 00:00:00, time: h23, db_type: diff, db_time: d2, user_type: None, user_time: None
-runtume: 2023-01-10 01:00:00, time: d3, db_type: full, db_time: None, user_type: diff, user_time: w3
+runtume: 2023-01-10 01:00:00, time: d3, db_type: full, db_time: None, user_type: diff, user_time: w1
 runtume: 2023-01-10 02:00:00, time: h01, db_type: diff, db_time: d3, user_type: None, user_time: None
 runtume: 2023-01-10 03:00:00, time: h02, db_type: diff, db_time: d3, user_type: None, user_time: None
 runtume: 2023-01-10 04:00:00, time: h03, db_type: diff, db_time: d3, user_type: None, user_time: None
@@ -243,7 +243,7 @@ runtume: 2023-01-10 20:00:00, time: h19, db_type: diff, db_time: d3, user_type: 
 runtume: 2023-01-10 21:00:00, time: h20, db_type: diff, db_time: d3, user_type: None, user_time: None
 runtume: 2023-01-10 22:00:00, time: h21, db_type: diff, db_time: d3, user_type: None, user_time: None
 runtume: 2023-01-11 00:00:00, time: h23, db_type: diff, db_time: d3, user_type: None, user_time: None
-runtume: 2023-01-11 01:00:00, time: d4, db_type: full, db_time: None, user_type: diff, user_time: w3
+runtume: 2023-01-11 01:00:00, time: d4, db_type: full, db_time: None, user_type: diff, user_time: w1
 runtume: 2023-01-11 02:00:00, time: h01, db_type: diff, db_time: d4, user_type: None, user_time: None
 runtume: 2023-01-11 03:00:00, time: h02, db_type: diff, db_time: d4, user_type: None, user_time: None
 runtume: 2023-01-11 04:00:00, time: h03, db_type: diff, db_time: d4, user_type: None, user_time: None
@@ -266,7 +266,7 @@ runtume: 2023-01-11 20:00:00, time: h19, db_type: diff, db_time: d4, user_type: 
 runtume: 2023-01-11 21:00:00, time: h20, db_type: diff, db_time: d4, user_type: None, user_time: None
 runtume: 2023-01-11 22:00:00, time: h21, db_type: diff, db_time: d4, user_type: None, user_time: None
 runtume: 2023-01-12 00:00:00, time: h23, db_type: diff, db_time: d4, user_type: None, user_time: None
-runtume: 2023-01-12 01:00:00, time: d5, db_type: full, db_time: None, user_type: diff, user_time: w3
+runtume: 2023-01-12 01:00:00, time: d5, db_type: full, db_time: None, user_type: diff, user_time: w1
 runtume: 2023-01-12 02:00:00, time: h01, db_type: diff, db_time: d5, user_type: None, user_time: None
 runtume: 2023-01-12 03:00:00, time: h02, db_type: diff, db_time: d5, user_type: None, user_time: None
 runtume: 2023-01-12 04:00:00, time: h03, db_type: diff, db_time: d5, user_type: None, user_time: None
@@ -289,7 +289,7 @@ runtume: 2023-01-12 20:00:00, time: h19, db_type: diff, db_time: d5, user_type: 
 runtume: 2023-01-12 21:00:00, time: h20, db_type: diff, db_time: d5, user_type: None, user_time: None
 runtume: 2023-01-12 22:00:00, time: h21, db_type: diff, db_time: d5, user_type: None, user_time: None
 runtume: 2023-01-13 00:00:00, time: h23, db_type: diff, db_time: d5, user_type: None, user_time: None
-runtume: 2023-01-13 01:00:00, time: d6, db_type: full, db_time: None, user_type: diff, user_time: w3
+runtume: 2023-01-13 01:00:00, time: d6, db_type: full, db_time: None, user_type: diff, user_time: w1
 runtume: 2023-01-13 02:00:00, time: h01, db_type: diff, db_time: d6, user_type: None, user_time: None
 runtume: 2023-01-13 03:00:00, time: h02, db_type: diff, db_time: d6, user_type: None, user_time: None
 runtume: 2023-01-13 04:00:00, time: h03, db_type: diff, db_time: d6, user_type: None, user_time: None
@@ -312,25 +312,25 @@ runtume: 2023-01-13 20:00:00, time: h19, db_type: diff, db_time: d6, user_type: 
 runtume: 2023-01-13 21:00:00, time: h20, db_type: diff, db_time: d6, user_type: None, user_time: None
 runtume: 2023-01-13 22:00:00, time: h21, db_type: diff, db_time: d6, user_type: None, user_time: None
 runtume: 2023-01-14 00:00:00, time: h23, db_type: diff, db_time: d6, user_type: None, user_time: None
-runtume: 2023-01-14 01:00:00, time: w4, db_type: full, db_time: None, user_type: full, user_time: None
-runtume: 2023-01-14 02:00:00, time: h01, db_type: diff, db_time: w4, user_type: None, user_time: None
-runtume: 2023-01-14 03:00:00, time: h02, db_type: diff, db_time: w4, user_type: None, user_time: None
-runtume: 2023-01-14 04:00:00, time: h03, db_type: diff, db_time: w4, user_type: None, user_time: None
-runtume: 2023-01-14 05:00:00, time: h04, db_type: diff, db_time: w4, user_type: None, user_time: None
-runtume: 2023-01-14 06:00:00, time: h05, db_type: diff, db_time: w4, user_type: None, user_time: None
-runtume: 2023-01-14 07:00:00, time: h06, db_type: diff, db_time: w4, user_type: None, user_time: None
-runtume: 2023-01-14 08:00:00, time: h07, db_type: diff, db_time: w4, user_type: None, user_time: None
-runtume: 2023-01-14 09:00:00, time: h08, db_type: diff, db_time: w4, user_type: None, user_time: None
-runtume: 2023-01-14 10:00:00, time: h09, db_type: diff, db_time: w4, user_type: None, user_time: None
-runtume: 2023-01-14 11:00:00, time: h10, db_type: diff, db_time: w4, user_type: None, user_time: None
-runtume: 2023-01-14 12:00:00, time: h11, db_type: diff, db_time: w4, user_type: None, user_time: None
-runtume: 2023-01-14 13:00:00, time: h12, db_type: diff, db_time: w4, user_type: None, user_time: None
-runtume: 2023-01-14 14:00:00, time: h13, db_type: diff, db_time: w4, user_type: None, user_time: None
-runtume: 2023-01-14 15:00:00, time: h14, db_type: diff, db_time: w4, user_type: None, user_time: None
-runtume: 2023-01-14 16:00:00, time: h15, db_type: diff, db_time: w4, user_type: None, user_time: None
-runtume: 2023-01-14 17:00:00, time: h16, db_type: diff, db_time: w4, user_type: None, user_time: None
-runtume: 2023-01-14 18:00:00, time: h17, db_type: diff, db_time: w4, user_type: None, user_time: None
-runtume: 2023-01-14 19:00:00, time: h18, db_type: diff, db_time: w4, user_type: None, user_time: None
-runtume: 2023-01-14 20:00:00, time: h19, db_type: diff, db_time: w4, user_type: None, user_time: None
-runtume: 2023-01-14 21:00:00, time: h20, db_type: diff, db_time: w4, user_type: None, user_time: None
-runtume: 2023-01-14 22:00:00, time: h21, db_type: diff, db_time: w4, user_type: None, user_time: None
+runtume: 2023-01-14 01:00:00, time: w1, db_type: full, db_time: None, user_type: full, user_time: None
+runtume: 2023-01-14 02:00:00, time: h01, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-14 03:00:00, time: h02, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-14 04:00:00, time: h03, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-14 05:00:00, time: h04, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-14 06:00:00, time: h05, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-14 07:00:00, time: h06, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-14 08:00:00, time: h07, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-14 09:00:00, time: h08, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-14 10:00:00, time: h09, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-14 11:00:00, time: h10, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-14 12:00:00, time: h11, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-14 13:00:00, time: h12, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-14 14:00:00, time: h13, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-14 15:00:00, time: h14, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-14 16:00:00, time: h15, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-14 17:00:00, time: h16, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-14 18:00:00, time: h17, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-14 19:00:00, time: h18, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-14 20:00:00, time: h19, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-14 21:00:00, time: h20, db_type: diff, db_time: w1, user_type: None, user_time: None
+runtume: 2023-01-14 22:00:00, time: h21, db_type: diff, db_time: w1, user_type: None, user_time: None
