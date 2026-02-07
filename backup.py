@@ -359,8 +359,8 @@ class EygaBackup(object):
 				clear_tmp_dir = True
 				path.set(user, "sql", self.__info.backup_db_type, self.__info.backup_db_time)
 				# Rotate backup files if needed
-				# if self.__info.backup_db_type == "full":
-				# 	db_cmds_user_7z.append(self.__rotate_db_backups(path.backup_filepathN))
+				if self.__info.backup_db_type == "full":
+					db_cmds_user_7z.append(self.__rotate_db_backups(path.backup_filepathN))
 				# Export all databases from specific user to files
 				if user == self.__config.db_default_user:
 					# Backup binary logs
@@ -435,8 +435,8 @@ class EygaBackup(object):
 				path.set(user, "user", self.__info.backup_user_type, self.__info.backup_user_time)
 				user_path_ignore = self.__lists.user_path_ignore_list.get(user)
 				# Rotate backup files if needed
-				# if self.__info.backup_user_type == "full":
-				# 	user_cmds.append(self.__rotate_db_backups(path.backup_filepathN))
+				if self.__info.backup_user_type == "full":
+					user_cmds.append(self.__rotate_db_backups(path.backup_filepathN))
 				# Full backup
 				if self.__info.backup_user_type == "full":
 					user_cmds.append(self.__7z_create(self.__config.user_root_dirpath, user, user_path_ignore, path.backup_dirpath, path.backup_filepath))
@@ -530,7 +530,7 @@ class EygaBackup(object):
 		
 		def __rotate_db_backups(self, backup_filepathN):
 			file0 = backup_filepathN.replace("{num}", "w1")
-			rcmd = ("if [ -f \"" + file0 + "\" ] && [ $(date -r \"" + file0 + "\" +%G%V) -ne $(date +%G%V) ]; then\n")
+			rcmd = ("if [ -f \"" + file0 + "\" ] && [ $(date -r \"" + file0 + "\" +%G%V) -lt $(date +%G%V) ]; then\n")
 			for num in range(self.__config.full_backup_weeks, 0, -1):
 				file1 = backup_filepathN.replace("{num}", "w" + str(num))
 				file2 = backup_filepathN.replace("{num}", "w" + str(num + 1))
