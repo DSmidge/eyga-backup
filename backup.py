@@ -407,8 +407,8 @@ class EygaBackup(object):
 					db_cmds_user_7z.append(self.__7z_create(path.db_temp_dirpath, user, None, path.backup_dirpath, path.backup_filepath))
 				if len(db_cmds_user_7z) > 0:
 					# Rotate backup files if needed
-					if self.__info.backup_db_type == "full":
-						db_cmds_user.append(self.__rotate_db_backups(path.backup_filepathN))
+					if self.__info.backup_db_type == "full" and self.__info.backup_time == "w1":
+						db_cmds_user.append(self.__rotate_backups(path.backup_filepathN))
 					db_cmds_user.append("if [ -f \"" + path.backup_filepath + "\" ]; then rm \"" + path.backup_filepath + "\"; fi")
 					db_cmds_user.extend(db_cmds_user_7z)
 				# Upload to Google Drive
@@ -449,8 +449,8 @@ class EygaBackup(object):
 				# Delete file user archive
 				if (len(user_cmds_7z) > 0):
 					# Rotate backup files if needed
-					if self.__info.backup_user_type == "full":
-						user_cmds.append(self.__rotate_db_backups(path.backup_filepathN))
+					if self.__info.backup_user_type == "full" and self.__info.backup_time == "w1":
+						user_cmds.append(self.__rotate_backups(path.backup_filepathN))
 					user_cmds.append("if [ -f \"" + path.backup_filepath + "\" ]; then rm \"" + path.backup_filepath + "\"; fi")
 					user_cmds.extend(user_cmds_7z)
 			return user_cmds, user_cmds_gd
@@ -530,7 +530,7 @@ class EygaBackup(object):
 					" > \"" + self.__config.backup_dirpath + "/mysqloptimize.log\"")
 			return rcmd
 		
-		def __rotate_db_backups(self, backup_filepathN):
+		def __rotate_backups(self, backup_filepathN):
 			file0 = backup_filepathN.replace("{num}", "w1")
 			rcmd = ("if [ -f \"" + file0 + "\" ] && [ $(date -r \"" + file0 + "\" +%G%V) -lt $(date +%G%V) ]; then\n")
 			for num in range(self.__config.full_backup_weeks, 0, -1):
