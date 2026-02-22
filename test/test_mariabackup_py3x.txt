@@ -2,8 +2,8 @@
 
 
 # db = full, user = full, 2022-12-31 01:00:00
-if [ -d "D:/Code/Eyga-Backup/test/backup/tmp/server" ]; then rm "D:/Code/Eyga-Backup/test/backup/tmp/server" -r; fi
-if [ ! -d "D:/Code/Eyga-Backup/test/backup/tmp/server" ]; then mkdir "D:/Code/Eyga-Backup/test/backup/tmp/server" -p; fi
+if [ -d "D:/Code/Eyga-Backup/test/backup/tmp/server" ]; then rm -r "D:/Code/Eyga-Backup/test/backup/tmp/server"; fi
+if [ ! -d "D:/Code/Eyga-Backup/test/backup/tmp/server" ]; then mkdir -p "D:/Code/Eyga-Backup/test/backup/tmp/server"; fi
 nice -n 15 mariabackup {pwd_db} --backup --databases-exclude="mysql information_schema performance_schema sys" --target-dir="D:/Code/Eyga-Backup/test/backup/tmp/server/mariadb" &> /dev/null
 if [ ! -f "D:/Code/Eyga-Backup/test/backup/tmp/server/mariadb/backup-my.cnf" ] || [ "$(( $(date +"%s") - $(stat -c "%Y" "D:/Code/Eyga-Backup/test/backup/tmp/server/mariadb/backup-my.cnf") ))" -gt "1800" ]; then echo "MariaDB backup is missing or is older than 30 minutes."; fi
 if [ -f "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-w1.7z" ] && [ $(date -r "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-w1.7z" +%G%V) -lt $(date +%G%V) ]; then
@@ -31,13 +31,12 @@ if [ -f "D:/Code/Eyga-Backup/test/backup/user2/user2-user-full-w1.7z" ] && [ $(d
     if [ -f "D:/Code/Eyga-Backup/test/backup/user2/user2-user-full-w1.7z" ]; then mv "D:/Code/Eyga-Backup/test/backup/user2/user2-user-full-w1.7z" "D:/Code/Eyga-Backup/test/backup/user2/user2-user-full-w2.7z"; fi
 fi
 if [ -f "D:/Code/Eyga-Backup/test/backup/user2/user2-user-full-w1.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/user2/user2-user-full-w1.7z"; fi
-nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup/test/backup/7zip-tmp" -x\!"user1/relative_path_filter1" -x\!"user1/relative_path_filter2;user2:relative_path_filter3" "D:/Code/Eyga-Backup/test/backup/user1/user1-user-full-w1.7z" "D:/Code/Eyga-Backup/test/user/user1" > /dev/null
 nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup/test/backup/7zip-tmp" "D:/Code/Eyga-Backup/test/backup/user2/user2-user-full-w1.7z" "D:/Code/Eyga-Backup/test/user/user2" > /dev/null
 
 
 # db = full, user = diff, 2023-01-01 01:00:00
-if [ -d "D:/Code/Eyga-Backup/test/backup/tmp/server" ]; then rm "D:/Code/Eyga-Backup/test/backup/tmp/server" -r; fi
-if [ ! -d "D:/Code/Eyga-Backup/test/backup/tmp/server" ]; then mkdir "D:/Code/Eyga-Backup/test/backup/tmp/server" -p; fi
+if [ -d "D:/Code/Eyga-Backup/test/backup/tmp/server" ]; then rm -r "D:/Code/Eyga-Backup/test/backup/tmp/server"; fi
+if [ ! -d "D:/Code/Eyga-Backup/test/backup/tmp/server" ]; then mkdir -p "D:/Code/Eyga-Backup/test/backup/tmp/server"; fi
 nice -n 15 mariabackup {pwd_db} --backup --databases-exclude="mysql information_schema performance_schema sys" --target-dir="D:/Code/Eyga-Backup/test/backup/tmp/server/mariadb" &> /dev/null
 if [ ! -f "D:/Code/Eyga-Backup/test/backup/tmp/server/mariadb/backup-my.cnf" ] || [ "$(( $(date +"%s") - $(stat -c "%Y" "D:/Code/Eyga-Backup/test/backup/tmp/server/mariadb/backup-my.cnf") ))" -gt "1800" ]; then echo "MariaDB backup is missing or is older than 30 minutes."; fi
 if [ -f "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-d1.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-d1.7z"; fi
@@ -46,13 +45,12 @@ nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup
 if [ -f "D:/Code/Eyga-Backup/test/backup/user1/user1-user-diff-d1.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/user1/user1-user-diff-d1.7z"; fi
 nice -n 15 7z u {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup/test/backup/7zip-tmp" -x\!"user1/relative_path_filter1" -x\!"user1/relative_path_filter2;user2:relative_path_filter3" "D:/Code/Eyga-Backup/test/backup/user1/user1-user-full-w1.7z" "D:/Code/Eyga-Backup/test/user/user1" -u- -up0q3r2x2y2z0w2\!"D:/Code/Eyga-Backup/test/backup/user1/user1-user-diff-d1.7z" > /dev/null
 if [ -f "D:/Code/Eyga-Backup/test/backup/user2/user2-user-diff-d1.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/user2/user2-user-diff-d1.7z"; fi
-nice -n 15 7z u {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup/test/backup/7zip-tmp" -x\!"user1/relative_path_filter1" -x\!"user1/relative_path_filter2;user2:relative_path_filter3" "D:/Code/Eyga-Backup/test/backup/user1/user1-user-full-w1.7z" "D:/Code/Eyga-Backup/test/user/user1" -u- -up0q3r2x2y2z0w2\!"D:/Code/Eyga-Backup/test/backup/user1/user1-user-diff-d1.7z" > /dev/null
 nice -n 15 7z u {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup/test/backup/7zip-tmp" "D:/Code/Eyga-Backup/test/backup/user2/user2-user-full-w1.7z" "D:/Code/Eyga-Backup/test/user/user2" -u- -up0q3r2x2y2z0w2\!"D:/Code/Eyga-Backup/test/backup/user2/user2-user-diff-d1.7z" > /dev/null
 
 
 # db = diff, user = None, 2023-01-01 02:00:00
-if [ -d "D:/Code/Eyga-Backup/test/backup-tmp/server" ]; then rm "D:/Code/Eyga-Backup/test/backup-tmp/server" -r; fi
-if [ ! -d "D:/Code/Eyga-Backup/test/backup-tmp/server" ]; then mkdir "D:/Code/Eyga-Backup/test/backup-tmp/server" -p; fi
+if [ -d "D:/Code/Eyga-Backup/test/backup-tmp/server" ]; then rm -r "D:/Code/Eyga-Backup/test/backup-tmp/server"; fi
+if [ ! -d "D:/Code/Eyga-Backup/test/backup-tmp/server" ]; then mkdir -p "D:/Code/Eyga-Backup/test/backup-tmp/server"; fi
 nice -n 15 mariabackup {pwd_db} --backup --databases-exclude="mysql information_schema performance_schema sys" --target-dir="D:/Code/Eyga-Backup/test/backup-tmp/server/mariadb" --incremental-basedir="D:/Code/Eyga-Backup/test/backup/tmp/server/mariadb" &> /dev/null
 if [ ! -f "D:/Code/Eyga-Backup/test/backup-tmp/server/mariadb/backup-my.cnf" ] || [ "$(( $(date +"%s") - $(stat -c "%Y" "D:/Code/Eyga-Backup/test/backup-tmp/server/mariadb/backup-my.cnf") ))" -gt "1800" ]; then echo "MariaDB backup is missing or is older than 30 minutes."; fi
 if [ -f "D:/Code/Eyga-Backup/test/backup/server/server-sql-diff-h01.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/server/server-sql-diff-h01.7z"; fi

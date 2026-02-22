@@ -81,7 +81,7 @@ class EygaBackup(object):
 			with open(self.__config.backup_dirpath + "/backup.log", "a") as log:
 				log.write(", " + backup_x + " = " + str(round((stop - start).total_seconds(), 1)) + "s")
 				if self.__config.backup_verbose == True:
-					log.write(", commands:\n" + cmd + " #")
+					log.write(", commands:\n" + cmd")
 		else:
 			print(cmd)
 
@@ -402,11 +402,11 @@ class EygaBackup(object):
 				# Archive databases
 				if (len(db_cmds_user) > 0):
 					if clear_tmp_dir == True:
-						db_cmds_user.insert(0, "if [ -d \"" + path.db_dirpath + "\" ]; then rm \"" + path.db_dirpath + "\" -r; fi")
-						db_cmds_user.insert(1, "if [ ! -d \"" + path.db_dirpath + "\" ]; then mkdir \"" + path.db_dirpath + "\" -p; fi")
+						db_cmds_user.insert(0, "if [ -d \"" + path.db_dirpath + "\" ]; then rm -r \"" + path.db_dirpath + "\"; fi")
+						db_cmds_user.insert(1, "if [ ! -d \"" + path.db_dirpath + "\" ]; then mkdir -p \"" + path.db_dirpath + "\"; fi")
 					db_cmds_user_7z.append(self.__7z_create(path.db_temp_dirpath, user, None, path.backup_dirpath, path.backup_filepath))
+				# Rotate backup files if needed
 				if len(db_cmds_user_7z) > 0:
-					# Rotate backup files if needed
 					if self.__info.backup_db_type == "full" and self.__info.backup_time == "w1":
 						db_cmds_user.append(self.__rotate_backups(path.backup_filepathN))
 					db_cmds_user.append("if [ -f \"" + path.backup_filepath + "\" ]; then rm \"" + path.backup_filepath + "\"; fi")
@@ -426,33 +426,36 @@ class EygaBackup(object):
 		# Prepare commands for backup of user files
 		def user_cmds(self):
 			user_cmds = []
-			user_cmds_7z = []
 			user_cmds_gd = []
 			if self.__info.backup_user_type is None:
 				return
 			# Separate backup for every user
 			path = self.Path(self.__config, self.__info)
 			for user in self.__lists.user_list:
+				user_cmds_user = []
+				user_cmds_user_7z = []
 				path.set(user, "user", self.__info.backup_user_type, self.__info.backup_user_time)
 				user_path_ignore = self.__lists.user_path_ignore_list.get(user)
 				# Full backup
 				if self.__info.backup_user_type == "full":
-					user_cmds_7z.append(self.__7z_create(self.__config.user_root_dirpath, user, user_path_ignore, path.backup_dirpath, path.backup_filepath))
+					user_cmds_user_7z.append(self.__7z_create(self.__config.user_root_dirpath, user, user_path_ignore, path.backup_dirpath, path.backup_filepath))
 				# Diff backup
 				if self.__info.backup_user_type == "diff":
-					user_cmds_7z.append(self.__7z_update(self.__config.user_root_dirpath, user, user_path_ignore, path.backup_filepath, path.user_filepath_full))
+					user_cmds_user_7z.append(self.__7z_update(self.__config.user_root_dirpath, user, user_path_ignore, path.backup_filepath, path.user_filepath_full))
 					# Upload to Google Drive
 					gd_file = path.backup_dirpath + "/" + path.backup_filename
 					if os.path.isfile(gd_file):
 						user_cmds_gd.append("python \"" + self.__config.script_dirpath + "googledrive.py\""
 								" '" + gd_file + "' 'Diff for " + str(self.__info.backup_user_time).upper() + "'")
-				# Delete file user archive
-				if (len(user_cmds_7z) > 0):
-					# Rotate backup files if needed
+				# Rotate backup files if needed
+				if (len(user_cmds_user_7z) > 0):
 					if self.__info.backup_user_type == "full" and self.__info.backup_time == "w1":
-						user_cmds.append(self.__rotate_backups(path.backup_filepathN))
-					user_cmds.append("if [ -f \"" + path.backup_filepath + "\" ]; then rm \"" + path.backup_filepath + "\"; fi")
-					user_cmds.extend(user_cmds_7z)
+						user_cmds_user.append(self.__rotate_backups(path.backup_filepathN))
+					user_cmds_user.append("if [ -f \"" + path.backup_filepath + "\" ]; then rm \"" + path.backup_filepath + "\"; fi")
+					user_cmds_user.extend(user_cmds_user_7z)
+				# Add to all commands
+				if (len(user_cmds_user) > 0):
+					user_cmds.extend(user_cmds_user)
 			return user_cmds, user_cmds_gd
 
 		def __mysqldump_extra_params(self):

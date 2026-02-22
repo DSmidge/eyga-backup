@@ -2,8 +2,8 @@
 
 
 # db = full, user = full, 2022-12-31 01:00:00
-if [ -d "D:/Code/Eyga-Backup/test/backup/tmp/server" ]; then rm "D:/Code/Eyga-Backup/test/backup/tmp/server" -r; fi
-if [ ! -d "D:/Code/Eyga-Backup/test/backup/tmp/server" ]; then mkdir "D:/Code/Eyga-Backup/test/backup/tmp/server" -p; fi
+if [ -d "D:/Code/Eyga-Backup/test/backup/tmp/server" ]; then rm -r "D:/Code/Eyga-Backup/test/backup/tmp/server"; fi
+if [ ! -d "D:/Code/Eyga-Backup/test/backup/tmp/server" ]; then mkdir -p "D:/Code/Eyga-Backup/test/backup/tmp/server"; fi
 { echo "SET SESSION UNIQUE_CHECKS = 0;\nSET SESSION FOREIGN_KEY_CHECKS = 0;\n\n"; nice -n 15 mysqldump {pwd_db} $(if [[ `mysql --version` == *"MariaDB"* ]]; then echo "--skip-log-queries"; else echo "--mysqld-long-query-time=300"; fi) --skip-extended-insert --single-transaction --routines --triggers --events --no-tablespaces --databases sys_sdb1 | python C:/Code/Eyga-Backup/mysqldump-insert-concat.py; } > "D:/Code/Eyga-Backup/test/backup/tmp/server/sys_sdb1.sql"
 { echo "SET SESSION UNIQUE_CHECKS = 0;\nSET SESSION FOREIGN_KEY_CHECKS = 0;\n\n"; nice -n 15 mysqldump {pwd_db} $(if [[ `mysql --version` == *"MariaDB"* ]]; then echo "--skip-log-queries"; else echo "--mysqld-long-query-time=300"; fi) --skip-extended-insert --single-transaction --routines --triggers --events --no-tablespaces --databases sys_sdb2 | python C:/Code/Eyga-Backup/mysqldump-insert-concat.py; } > "D:/Code/Eyga-Backup/test/backup/tmp/server/sys_sdb2.sql"
 if [ -f "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-w1.7z" ] && [ $(date -r "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-w1.7z" +%G%V) -lt $(date +%G%V) ]; then
@@ -15,8 +15,8 @@ fi
 if [ -f "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-w1.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-w1.7z"; fi
 echo "FLUSH PRIVILEGES; SELECT CONCAT('SHOW CREATE USER ''', User, '''@''', Host, '''; SHOW GRANTS FOR ''', User, '''@''', Host, ''';') AS cmd FROM mysql.user WHERE '1'='1' AND User NOT LIKE 'root' AND User NOT LIKE 'debian-sys-maint' AND User NOT LIKE 'mysql.%' AND User NOT LIKE 'mariadb.sys';" | mysql {pwd_db}  -N | mysql {pwd_db}  -N | nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -si"server/mysql_users_and_grants.sql" "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-w1.7z" > /dev/null
 nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup/test/backup/7zip-tmp" "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-w1.7z" "D:/Code/Eyga-Backup/test/backup/tmp/server" > /dev/null
-if [ -d "D:/Code/Eyga-Backup/test/backup/tmp/user1" ]; then rm "D:/Code/Eyga-Backup/test/backup/tmp/user1" -r; fi
-if [ ! -d "D:/Code/Eyga-Backup/test/backup/tmp/user1" ]; then mkdir "D:/Code/Eyga-Backup/test/backup/tmp/user1" -p; fi
+if [ -d "D:/Code/Eyga-Backup/test/backup/tmp/user1" ]; then rm -r "D:/Code/Eyga-Backup/test/backup/tmp/user1"; fi
+if [ ! -d "D:/Code/Eyga-Backup/test/backup/tmp/user1" ]; then mkdir -p "D:/Code/Eyga-Backup/test/backup/tmp/user1"; fi
 { echo "SET SESSION UNIQUE_CHECKS = 0;\nSET SESSION FOREIGN_KEY_CHECKS = 0;\n\n"; nice -n 15 mysqldump {pwd_db} $(if [[ `mysql --version` == *"MariaDB"* ]]; then echo "--skip-log-queries"; else echo "--mysqld-long-query-time=300"; fi) --skip-extended-insert --single-transaction --routines --triggers --events --no-tablespaces --databases user1_db1 | python C:/Code/Eyga-Backup/mysqldump-insert-concat.py; } > "D:/Code/Eyga-Backup/test/backup/tmp/user1/user1_db1.sql"
 if [ -f "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-w1.7z" ] && [ $(date -r "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-w1.7z" +%G%V) -lt $(date +%G%V) ]; then
     if [ -f "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-w4.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-w4.7z"; fi
@@ -26,8 +26,8 @@ if [ -f "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-w1.7z" ] && [ $(da
 fi
 if [ -f "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-w1.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-w1.7z"; fi
 nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup/test/backup/7zip-tmp" "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-w1.7z" "D:/Code/Eyga-Backup/test/backup/tmp/user1" > /dev/null
-if [ -d "D:/Code/Eyga-Backup/test/backup/tmp/user2" ]; then rm "D:/Code/Eyga-Backup/test/backup/tmp/user2" -r; fi
-if [ ! -d "D:/Code/Eyga-Backup/test/backup/tmp/user2" ]; then mkdir "D:/Code/Eyga-Backup/test/backup/tmp/user2" -p; fi
+if [ -d "D:/Code/Eyga-Backup/test/backup/tmp/user2" ]; then rm -r "D:/Code/Eyga-Backup/test/backup/tmp/user2"; fi
+if [ ! -d "D:/Code/Eyga-Backup/test/backup/tmp/user2" ]; then mkdir -p "D:/Code/Eyga-Backup/test/backup/tmp/user2"; fi
 { echo "SET SESSION UNIQUE_CHECKS = 0;\nSET SESSION FOREIGN_KEY_CHECKS = 0;\n\n"; nice -n 15 mysqldump {pwd_db} $(if [[ `mysql --version` == *"MariaDB"* ]]; then echo "--skip-log-queries"; else echo "--mysqld-long-query-time=300"; fi) --skip-extended-insert --single-transaction --routines --triggers --events --no-tablespaces --databases user2_db2 | python C:/Code/Eyga-Backup/mysqldump-insert-concat.py; } > "D:/Code/Eyga-Backup/test/backup/tmp/user2/user2_db2.sql"
 if [ -f "D:/Code/Eyga-Backup/test/backup/user2/user2-sql-full-w1.7z" ] && [ $(date -r "D:/Code/Eyga-Backup/test/backup/user2/user2-sql-full-w1.7z" +%G%V) -lt $(date +%G%V) ]; then
     if [ -f "D:/Code/Eyga-Backup/test/backup/user2/user2-sql-full-w4.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/user2/user2-sql-full-w4.7z"; fi
@@ -53,32 +53,30 @@ if [ -f "D:/Code/Eyga-Backup/test/backup/user2/user2-user-full-w1.7z" ] && [ $(d
     if [ -f "D:/Code/Eyga-Backup/test/backup/user2/user2-user-full-w1.7z" ]; then mv "D:/Code/Eyga-Backup/test/backup/user2/user2-user-full-w1.7z" "D:/Code/Eyga-Backup/test/backup/user2/user2-user-full-w2.7z"; fi
 fi
 if [ -f "D:/Code/Eyga-Backup/test/backup/user2/user2-user-full-w1.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/user2/user2-user-full-w1.7z"; fi
-nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup/test/backup/7zip-tmp" -x\!"user1/relative_path_filter1" -x\!"user1/relative_path_filter2;user2:relative_path_filter3" "D:/Code/Eyga-Backup/test/backup/user1/user1-user-full-w1.7z" "D:/Code/Eyga-Backup/test/user/user1" > /dev/null
 nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup/test/backup/7zip-tmp" "D:/Code/Eyga-Backup/test/backup/user2/user2-user-full-w1.7z" "D:/Code/Eyga-Backup/test/user/user2" > /dev/null
 
 
 # db = full, user = diff, 2023-01-01 01:00:00
-if [ -d "D:/Code/Eyga-Backup/test/backup/tmp/server" ]; then rm "D:/Code/Eyga-Backup/test/backup/tmp/server" -r; fi
-if [ ! -d "D:/Code/Eyga-Backup/test/backup/tmp/server" ]; then mkdir "D:/Code/Eyga-Backup/test/backup/tmp/server" -p; fi
+if [ -d "D:/Code/Eyga-Backup/test/backup/tmp/server" ]; then rm -r "D:/Code/Eyga-Backup/test/backup/tmp/server"; fi
+if [ ! -d "D:/Code/Eyga-Backup/test/backup/tmp/server" ]; then mkdir -p "D:/Code/Eyga-Backup/test/backup/tmp/server"; fi
 { echo "SET SESSION UNIQUE_CHECKS = 0;\nSET SESSION FOREIGN_KEY_CHECKS = 0;\n\n"; nice -n 15 mysqldump {pwd_db} $(if [[ `mysql --version` == *"MariaDB"* ]]; then echo "--skip-log-queries"; else echo "--mysqld-long-query-time=300"; fi) --skip-extended-insert --single-transaction --routines --triggers --events --no-tablespaces --databases sys_sdb1 | python C:/Code/Eyga-Backup/mysqldump-insert-concat.py; } > "D:/Code/Eyga-Backup/test/backup/tmp/server/sys_sdb1.sql"
 { echo "SET SESSION UNIQUE_CHECKS = 0;\nSET SESSION FOREIGN_KEY_CHECKS = 0;\n\n"; nice -n 15 mysqldump {pwd_db} $(if [[ `mysql --version` == *"MariaDB"* ]]; then echo "--skip-log-queries"; else echo "--mysqld-long-query-time=300"; fi) --skip-extended-insert --single-transaction --routines --triggers --events --no-tablespaces --databases sys_sdb2 | python C:/Code/Eyga-Backup/mysqldump-insert-concat.py; } > "D:/Code/Eyga-Backup/test/backup/tmp/server/sys_sdb2.sql"
 if [ -f "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-d1.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-d1.7z"; fi
 echo "FLUSH PRIVILEGES; SELECT CONCAT('SHOW CREATE USER ''', User, '''@''', Host, '''; SHOW GRANTS FOR ''', User, '''@''', Host, ''';') AS cmd FROM mysql.user WHERE '1'='1' AND User NOT LIKE 'root' AND User NOT LIKE 'debian-sys-maint' AND User NOT LIKE 'mysql.%' AND User NOT LIKE 'mariadb.sys';" | mysql {pwd_db}  -N | mysql {pwd_db}  -N | nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -si"server/mysql_users_and_grants.sql" "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-d1.7z" > /dev/null
 nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup/test/backup/7zip-tmp" "D:/Code/Eyga-Backup/test/backup/server/server-sql-full-d1.7z" "D:/Code/Eyga-Backup/test/backup/tmp/server" > /dev/null
-if [ -d "D:/Code/Eyga-Backup/test/backup/tmp/user1" ]; then rm "D:/Code/Eyga-Backup/test/backup/tmp/user1" -r; fi
-if [ ! -d "D:/Code/Eyga-Backup/test/backup/tmp/user1" ]; then mkdir "D:/Code/Eyga-Backup/test/backup/tmp/user1" -p; fi
+if [ -d "D:/Code/Eyga-Backup/test/backup/tmp/user1" ]; then rm -r "D:/Code/Eyga-Backup/test/backup/tmp/user1"; fi
+if [ ! -d "D:/Code/Eyga-Backup/test/backup/tmp/user1" ]; then mkdir -p "D:/Code/Eyga-Backup/test/backup/tmp/user1"; fi
 { echo "SET SESSION UNIQUE_CHECKS = 0;\nSET SESSION FOREIGN_KEY_CHECKS = 0;\n\n"; nice -n 15 mysqldump {pwd_db} $(if [[ `mysql --version` == *"MariaDB"* ]]; then echo "--skip-log-queries"; else echo "--mysqld-long-query-time=300"; fi) --skip-extended-insert --single-transaction --routines --triggers --events --no-tablespaces --databases user1_db1 | python C:/Code/Eyga-Backup/mysqldump-insert-concat.py; } > "D:/Code/Eyga-Backup/test/backup/tmp/user1/user1_db1.sql"
 if [ -f "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-d1.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-d1.7z"; fi
 nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup/test/backup/7zip-tmp" "D:/Code/Eyga-Backup/test/backup/user1/user1-sql-full-d1.7z" "D:/Code/Eyga-Backup/test/backup/tmp/user1" > /dev/null
-if [ -d "D:/Code/Eyga-Backup/test/backup/tmp/user2" ]; then rm "D:/Code/Eyga-Backup/test/backup/tmp/user2" -r; fi
-if [ ! -d "D:/Code/Eyga-Backup/test/backup/tmp/user2" ]; then mkdir "D:/Code/Eyga-Backup/test/backup/tmp/user2" -p; fi
+if [ -d "D:/Code/Eyga-Backup/test/backup/tmp/user2" ]; then rm -r "D:/Code/Eyga-Backup/test/backup/tmp/user2"; fi
+if [ ! -d "D:/Code/Eyga-Backup/test/backup/tmp/user2" ]; then mkdir -p "D:/Code/Eyga-Backup/test/backup/tmp/user2"; fi
 { echo "SET SESSION UNIQUE_CHECKS = 0;\nSET SESSION FOREIGN_KEY_CHECKS = 0;\n\n"; nice -n 15 mysqldump {pwd_db} $(if [[ `mysql --version` == *"MariaDB"* ]]; then echo "--skip-log-queries"; else echo "--mysqld-long-query-time=300"; fi) --skip-extended-insert --single-transaction --routines --triggers --events --no-tablespaces --databases user2_db2 | python C:/Code/Eyga-Backup/mysqldump-insert-concat.py; } > "D:/Code/Eyga-Backup/test/backup/tmp/user2/user2_db2.sql"
 if [ -f "D:/Code/Eyga-Backup/test/backup/user2/user2-sql-full-d1.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/user2/user2-sql-full-d1.7z"; fi
 nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup/test/backup/7zip-tmp" "D:/Code/Eyga-Backup/test/backup/user2/user2-sql-full-d1.7z" "D:/Code/Eyga-Backup/test/backup/tmp/user2" > /dev/null
 if [ -f "D:/Code/Eyga-Backup/test/backup/user1/user1-user-diff-d1.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/user1/user1-user-diff-d1.7z"; fi
 nice -n 15 7z u {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup/test/backup/7zip-tmp" -x\!"user1/relative_path_filter1" -x\!"user1/relative_path_filter2;user2:relative_path_filter3" "D:/Code/Eyga-Backup/test/backup/user1/user1-user-full-w1.7z" "D:/Code/Eyga-Backup/test/user/user1" -u- -up0q3r2x2y2z0w2\!"D:/Code/Eyga-Backup/test/backup/user1/user1-user-diff-d1.7z" > /dev/null
 if [ -f "D:/Code/Eyga-Backup/test/backup/user2/user2-user-diff-d1.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/user2/user2-user-diff-d1.7z"; fi
-nice -n 15 7z u {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup/test/backup/7zip-tmp" -x\!"user1/relative_path_filter1" -x\!"user1/relative_path_filter2;user2:relative_path_filter3" "D:/Code/Eyga-Backup/test/backup/user1/user1-user-full-w1.7z" "D:/Code/Eyga-Backup/test/user/user1" -u- -up0q3r2x2y2z0w2\!"D:/Code/Eyga-Backup/test/backup/user1/user1-user-diff-d1.7z" > /dev/null
 nice -n 15 7z u {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup/test/backup/7zip-tmp" "D:/Code/Eyga-Backup/test/backup/user2/user2-user-full-w1.7z" "D:/Code/Eyga-Backup/test/user/user2" -u- -up0q3r2x2y2z0w2\!"D:/Code/Eyga-Backup/test/backup/user2/user2-user-diff-d1.7z" > /dev/null
 
 

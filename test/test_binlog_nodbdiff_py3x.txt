@@ -45,7 +45,6 @@ if [ -f "D:/Code/Eyga-Backup/test/backup/user2/user2-user-full-w1.7z" ] && [ $(d
     if [ -f "D:/Code/Eyga-Backup/test/backup/user2/user2-user-full-w1.7z" ]; then mv "D:/Code/Eyga-Backup/test/backup/user2/user2-user-full-w1.7z" "D:/Code/Eyga-Backup/test/backup/user2/user2-user-full-w2.7z"; fi
 fi
 if [ -f "D:/Code/Eyga-Backup/test/backup/user2/user2-user-full-w1.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/user2/user2-user-full-w1.7z"; fi
-nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup/test/backup/7zip-tmp" -x\!"user1/relative_path_filter1" -x\!"user1/relative_path_filter2;user2:relative_path_filter3" "D:/Code/Eyga-Backup/test/backup/user1/user1-user-full-w1.7z" "D:/Code/Eyga-Backup/test/user/user1" > /dev/null
 nice -n 15 7z a {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup/test/backup/7zip-tmp" "D:/Code/Eyga-Backup/test/backup/user2/user2-user-full-w1.7z" "D:/Code/Eyga-Backup/test/user/user2" > /dev/null
 
 
@@ -62,7 +61,6 @@ if [ -f "D:/Code/Eyga-Backup/test/backup/user2/user2-sql-full-d1.7z" ]; then rm 
 if [ -f "D:/Code/Eyga-Backup/test/backup/user1/user1-user-diff-d1.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/user1/user1-user-diff-d1.7z"; fi
 nice -n 15 7z u {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup/test/backup/7zip-tmp" -x\!"user1/relative_path_filter1" -x\!"user1/relative_path_filter2;user2:relative_path_filter3" "D:/Code/Eyga-Backup/test/backup/user1/user1-user-full-w1.7z" "D:/Code/Eyga-Backup/test/user/user1" -u- -up0q3r2x2y2z0w2\!"D:/Code/Eyga-Backup/test/backup/user1/user1-user-diff-d1.7z" > /dev/null
 if [ -f "D:/Code/Eyga-Backup/test/backup/user2/user2-user-diff-d1.7z" ]; then rm "D:/Code/Eyga-Backup/test/backup/user2/user2-user-diff-d1.7z"; fi
-nice -n 15 7z u {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup/test/backup/7zip-tmp" -x\!"user1/relative_path_filter1" -x\!"user1/relative_path_filter2;user2:relative_path_filter3" "D:/Code/Eyga-Backup/test/backup/user1/user1-user-full-w1.7z" "D:/Code/Eyga-Backup/test/user/user1" -u- -up0q3r2x2y2z0w2\!"D:/Code/Eyga-Backup/test/backup/user1/user1-user-diff-d1.7z" > /dev/null
 nice -n 15 7z u {pwd_7z} -bd -mhe=on -mf=off -mx=3 -mmt=2 -w"D:/Code/Eyga-Backup/test/backup/7zip-tmp" "D:/Code/Eyga-Backup/test/backup/user2/user2-user-full-w1.7z" "D:/Code/Eyga-Backup/test/user/user2" -u- -up0q3r2x2y2z0w2\!"D:/Code/Eyga-Backup/test/backup/user2/user2-user-diff-d1.7z" > /dev/null
 
 
